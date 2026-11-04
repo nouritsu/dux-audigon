@@ -31,6 +31,18 @@ function closestOnSegment(p, a, b) {
     return {"x": a.x + t * dx, "y": a.y + t * dy, "t": t};
 }
 
+// inside the polygon, edges included
+function inside(verts, p) {
+    const n = verts.length;
+    if (n < 3)
+        return false;
+    for (let i = 0; i < n; i++) {
+        if (area(verts[i], verts[(i + 1) % n], p) < 0)
+            return false;
+    }
+    return true;
+}
+
 // p moved onto the line, or into the polygon, whichever is nearest
 function clamp(verts, p) {
     const n = verts.length;
@@ -38,19 +50,70 @@ function clamp(verts, p) {
         return {"x": Math.max(0, Math.min(1, p.x)), "y": 0.5};
     if (n < 2)
         return {"x": 0.5, "y": 0.5};
-    let inside = true;
-    for (let i = 0; i < n; i++) {
-        if (area(verts[i], verts[(i + 1) % n], p) < 0) {
-            inside = false;
-            break;
-        }
-    }
-    if (inside)
+    if (inside(verts, p))
         return {"x": p.x, "y": p.y};
     let best = null;
     let bestDist = Infinity;
     for (let i = 0; i < n; i++) {
         const q = closestOnSegment(p, verts[i], verts[(i + 1) % n]);
+        const d = (q.x - p.x) * (q.x - p.x) + (q.y - p.y) * (q.y - p.y);
+        if (d < bestDist) {
+            bestDist = d;
+            best = q;
+        }
+    }
+    return {"x": best.x, "y": best.y};
+}
+
+function closestInTriangle(p, tri) {
+    const [a, b, c] = tri;
+    const s = [area(a, b, p), area(b, c, p), area(c, a, p)];
+    if (!(s.some(v => v < -EPS) && s.some(v => v > EPS)))
+        return {"x": p.x, "y": p.y};
+    let best = null;
+    let bestDist = Infinity;
+    for (const [u, v] of [[a, b], [b, c], [c, a]]) {
+        const q = closestOnSegment(p, u, v);
+        const d = (q.x - p.x) * (q.x - p.x) + (q.y - p.y) * (q.y - p.y);
+        if (d < bestDist) {
+            bestDist = d;
+            best = q;
+        }
+    }
+    return best;
+}
+
+// where the dot may go with some groups muted: each sector between two unmuted vertices and
+// the centre, and the spoke to every unmuted vertex; a line's halves are its spokes
+function pieces(verts, muted) {
+    const n = verts.length;
+    const c = centre();
+    const out = [];
+    if (n >= 3) {
+        for (let i = 0; i < n; i++) {
+            const j = (i + 1) % n;
+            if (!muted[i] && !muted[j])
+                out.push([c, verts[i], verts[j]]);
+        }
+    }
+    for (let i = 0; i < n; i++) {
+        if (!muted[i])
+            out.push([c, verts[i]]);
+    }
+    return out;
+}
+
+// p moved to the nearest place the dot may go; with everything muted, the centre
+function clampTo(verts, muted, p) {
+    if (!(muted ?? []).some(m => m))
+        return clamp(verts, p);
+    const parts = pieces(verts, muted);
+    if (parts.length === 0)
+        return centre();
+    let best = null;
+    let bestDist = Infinity;
+    for (const part of parts) {
+        const q = part.length === 3 ? closestInTriangle(p, part) : closestOnSegment(p, part[0], part[1]);
         const d = (q.x - p.x) * (q.x - p.x) + (q.y - p.y) * (q.y - p.y);
         if (d < bestDist) {
             bestDist = d;

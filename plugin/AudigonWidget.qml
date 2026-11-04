@@ -375,7 +375,7 @@ PluginComponent {
                 }
 
                 SectionLabel {
-                    text: "Mixer"
+                    text: root.daemon?.bypassed ? "Mixer · off" : "Mixer"
                     visible: root.mixerShown
                 }
 
@@ -395,7 +395,8 @@ PluginComponent {
                         groups: root.daemon?.groups ?? []
                         factors: root.daemon?.effectiveFactors ?? []
                         muted: root.daemon?.muted ?? []
-                        dot: root.daemon?.dot ?? ({
+                        bypassed: root.daemon?.bypassed ?? false
+                        dot: root.daemon?.effectiveDot ?? ({
                                 "x": 0.5,
                                 "y": 0.5
                             })
@@ -403,6 +404,7 @@ PluginComponent {
                         onNudged: towardsVertex => root.daemon?.nudgeDot(towardsVertex)
                         onRecentred: root.daemon?.recentre()
                         onMuteToggled: index => root.daemon?.toggleGroupMute(index)
+                        onBypassToggled: root.daemon?.toggleBypass()
                     }
                 }
 

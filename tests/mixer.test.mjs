@@ -3,7 +3,7 @@ import {readFileSync} from "node:fs";
 import assert from "node:assert/strict";
 
 const source = readFileSync(new URL("../plugin/lib/mixer.js", import.meta.url), "utf8").replace(/^\.pragma library$/m, "");
-const Mixer = new Function(`${source}; return {vertices, clamp, sector, factors, centre, nudge};`)();
+const Mixer = new Function(`${source}; return {vertices, clamp, sector, factors, centre, nudge, inside, clampTo, closestInTriangle};`)();
 
 const near = (actual, expected, what) => {
     assert.equal(actual.length, expected.length, what);
@@ -64,6 +64,42 @@ for (let n = 3; n <= 8; n++) {
     const dx = -(v[2].y - 0.5) * eps;
     const dy = (v[2].x - 0.5) * eps;
     near(Mixer.factors(v, {"x": onRay.x + dx, "y": onRay.y + dy}), Mixer.factors(v, {"x": onRay.x - dx, "y": onRay.y - dy}), "5-gon sector seam");
+}
+
+// muted groups: the dot keeps out of every sector touching them
+{
+    const v = Mixer.vertices(3);
+    const c = Mixer.centre();
+    near(Object.values(Mixer.clampTo(v, [false, false, false], v[2])), [v[2].x, v[2].y], "nothing muted: free");
+
+    // one muted: only the sector between the other two
+    const open = [c, v[0], v[1]];
+    const pulled = Mixer.clampTo(v, [false, false, true], v[2]);
+    near(Object.values(Mixer.closestInTriangle(pulled, open)), [pulled.x, pulled.y], "one muted: pulled into the open sector");
+    const mid = {"x": (c.x + v[0].x + v[1].x) / 3, "y": (c.y + v[0].y + v[1].y) / 3};
+    near(Object.values(Mixer.clampTo(v, [false, false, true], mid)), [mid.x, mid.y], "one muted: free inside the open sector");
+
+    // two muted: only the spoke to the last
+    const onSpoke = Mixer.clampTo(v, [false, true, true], {"x": 0.9, "y": 0.2});
+    const cross = (v[0].x - c.x) * (onSpoke.y - c.y) - (v[0].y - c.y) * (onSpoke.x - c.x);
+    assert.ok(Math.abs(cross) < 1e-9, `two muted: on the spoke, got ${JSON.stringify(onSpoke)}`);
+
+    // all muted: the centre
+    near(Object.values(Mixer.clampTo(v, [true, true, true], v[0])), [0.5, 0.5], "all muted: centre");
+
+    // a square (left vertex muted): its two sectors are blocked, so the left half reaches only the spokes
+    const s = Mixer.vertices(4);
+    const leftOut = [false, true, false, false];
+    near(Object.values(Mixer.clampTo(s, leftOut, s[1])), [0.5, 0.5], "square: muted vertex pulls to the centre");
+    near(Object.values(Mixer.clampTo(s, leftOut, {"x": 0.25, "y": 0.75})), [0.5, 0.75], "square: blocked sector lands on the spoke");
+    near(Object.values(Mixer.clampTo(s, leftOut, {"x": 0.75, "y": 0.6})), [0.75, 0.6], "square: open sector free");
+}
+
+// a line with one end muted: only the other half
+{
+    const v = Mixer.vertices(2);
+    near(Object.values(Mixer.clampTo(v, [false, true], {"x": 0.9, "y": 0.5})), [0.5, 0.5], "line: muted half blocked");
+    near(Object.values(Mixer.clampTo(v, [false, true], {"x": 0.2, "y": 0.5})), [0.2, 0.5], "line: open half free");
 }
 
 console.log("mixer: ok");

@@ -696,7 +696,7 @@ PluginSettings {
             }
 
             StyledText {
-                text: "• Scroll on the widget to change volume (input / output)\n• Click the widget to open the audio panel\n• Pick devices and set their volumes under Input/Output\n• Set per-app volumes under Applications\n• Middle-click an app's volume slider to reset it to 100%\n• Drag the mixer's dot to balance its groups; scroll to nudge it, middle-click to recentre\n• Right-click a group in the mixer, or its badge on an app, to mute the whole group"
+                text: "• Scroll on the widget to change volume (input / output)\n• Click the widget to open the audio panel\n• Pick devices and set their volumes under Input/Output\n• Set per-app volumes under Applications\n• Middle-click an app's volume slider to reset it to 100%\n• Drag the mixer's dot to balance its groups; scroll to nudge it, middle-click to recentre\n• Right-click a group in the mixer, or its badge on an app, to mute the whole group; its side of the mixer closes off\n• Right-click inside the mixer's shape to switch the mixer off and on"
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.surfaceVariantText
                 wrapMode: Text.WordWrap

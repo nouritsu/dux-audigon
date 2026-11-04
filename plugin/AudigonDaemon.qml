@@ -43,16 +43,23 @@ PluginComponent {
     readonly property var vertices: Mixer.vertices(groups.length)
     readonly property real maxLevel: Math.max(1, (pluginData.maxVolumePercent || 100) / 100)
 
-    // normalised, kept in plugin state
-    property var dot: Mixer.centre()
-    // where the dot puts each group, before mutes
-    readonly property var factors: active ? Mixer.factors(vertices, dot) : groups.map(() => 1)
+    // switched off from the popout, kept in plugin state: every app at its own level, mutes included,
+    // while the groups and the dot stay as they were
+    property bool bypassed: false
+    readonly property bool engaged: active && !bypassed
 
     // names of the groups muted from the mixer, kept in plugin state; a muted group's factor is 0,
     // so its apps keep their own levels and the stream mute stays the app's
     property var mutedGroups: []
     readonly property var muted: groups.map(group => active && mutedGroups.includes(group.name))
-    readonly property var effectiveFactors: factors.map((factor, i) => muted[i] ? 0 : factor)
+
+    // normalised, kept in plugin state; muted groups' sectors are off limits, so the dot in use is
+    // held at the nearest open place and goes back once they're unmuted
+    property var dot: Mixer.centre()
+    readonly property var effectiveDot: Mixer.clampTo(vertices, muted, dot)
+    // where the dot puts each group, before mutes
+    readonly property var factors: engaged ? Mixer.factors(vertices, effectiveDot) : groups.map(() => 1)
+    readonly property var effectiveFactors: factors.map((factor, i) => engaged && muted[i] ? 0 : factor)
 
     // app key -> its own level, before the factor; kept in plugin state
     property var bases: ({})
@@ -207,12 +214,17 @@ PluginComponent {
     }
 
     function setDot(point) {
-        dot = Mixer.clamp(vertices, point);
+        dot = Mixer.clampTo(vertices, muted, point);
         saveTimer.restart();
     }
 
     function nudgeDot(towardsVertex) {
-        setDot(Mixer.nudge(vertices, dot, towardsVertex, 0.05));
+        setDot(Mixer.nudge(vertices, effectiveDot, towardsVertex, 0.05));
+    }
+
+    function toggleBypass() {
+        bypassed = !bypassed;
+        saveTimer.restart();
     }
 
     function recentre() {
@@ -390,6 +402,7 @@ PluginComponent {
             PluginService.savePluginState(root.pluginId, "dot", root.dot);
             PluginService.savePluginState(root.pluginId, "bases", root.bases);
             PluginService.savePluginState(root.pluginId, "mutedGroups", root.mutedGroups);
+            PluginService.savePluginState(root.pluginId, "bypassed", root.bypassed);
         }
     }
 
@@ -407,6 +420,7 @@ PluginComponent {
         dot = Mixer.clamp(vertices, PluginService.loadPluginState(pluginId, "dot", Mixer.centre()));
         bases = PluginService.loadPluginState(pluginId, "bases", {});
         mutedGroups = PluginService.loadPluginState(pluginId, "mutedGroups", []);
+        bypassed = PluginService.loadPluginState(pluginId, "bypassed", false);
         resolve();
     }
 

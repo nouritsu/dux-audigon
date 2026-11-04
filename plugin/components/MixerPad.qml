@@ -6,8 +6,9 @@ import qs.Common
 import qs.DCommon.Widgets
 import "../lib/mixer.js" as Mixer
 
-// the mixer: a dot on a line between two groups, or inside a polygon of three or more;
-// drag it, scroll to nudge it, middle-click to recentre, right-click a group to mute it
+// the mixer: a dot on a line between two groups, or inside a polygon of three or more; drag it,
+// scroll to nudge it, middle-click to recentre. Right-click a group to mute it, closing off its
+// side of the shape, or the shape itself to switch the mixer off and on
 Item {
     id: pad
 
@@ -15,18 +16,24 @@ Item {
     // after mutes
     property var factors: []
     property var muted: []
+    property bool bypassed: false
+    // where the dot is in use: held out of muted groups' sides
     property var dot: ({
             "x": 0.5,
             "y": 0.5
         })
 
     readonly property var vertices: Mixer.vertices(groups.length)
+    readonly property color openFill: Theme.withAlpha(Theme.primary, 0.06)
+    readonly property color closedFill: Theme.withAlpha(Theme.onSurface, 0.08)
+    readonly property color dotColor: bypassed ? Theme.surfaceVariantText : Theme.primary
 
     // normalised, like the dot
     signal moved(var point)
     signal nudged(bool towardsVertex)
     signal recentred
     signal muteToggled(int index)
+    signal bypassToggled
 
     width: parent?.width ?? 0
     implicitHeight: groups.length === 2 ? line.height : polygon.height
@@ -37,6 +44,13 @@ Item {
         visible: pad.groups.length === 2
         width: parent.width
         height: Math.max(leftChip.height, handle.height + Theme.spacingS * 2)
+        opacity: pad.bypassed ? 0.38 : 1
+
+        Behavior on opacity {
+            NumberAnimation {
+                duration: Theme.shortDuration
+            }
+        }
 
         GroupBadge {
             id: leftChip
@@ -76,12 +90,20 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             height: handle.height
 
-            Rectangle {
-                anchors.verticalCenter: parent.verticalCenter
-                width: parent.width
-                height: Theme.spacingXS
-                radius: height / 2
-                color: Theme.surfaceContainerHighest
+            // each half belongs to the group at its end; a muted group's half fades out
+            Repeater {
+                model: 2
+
+                Rectangle {
+                    required property int index
+
+                    x: index * track.width / 2
+                    y: (track.height - height) / 2
+                    width: track.width / 2
+                    height: Theme.spacingXS
+                    radius: height / 2
+                    color: pad.muted[index] ? pad.closedFill : Theme.surfaceContainerHighest
+                }
             }
 
             // the centre, where both are full
@@ -99,8 +121,8 @@ Item {
                 width: handle.width + Theme.spacingM
                 height: width
                 radius: width / 2
-                color: Theme.primary
-                opacity: lineDrag.pressed ? 0.16 : lineDrag.containsMouse ? 0.08 : 0
+                color: pad.dotColor
+                opacity: pad.bypassed ? 0 : lineDrag.pressed ? 0.16 : lineDrag.containsMouse ? 0.08 : 0
 
                 Behavior on opacity {
                     NumberAnimation {
@@ -117,11 +139,12 @@ Item {
                 width: Theme.iconSizeSmall + Theme.spacingXS
                 height: width
                 radius: width / 2
-                color: Theme.primary
+                color: pad.dotColor
                 border.width: 2
                 border.color: Theme.surfaceContainer
             }
 
+            // the chips take their own right-clicks; anywhere on the track switches the mixer
             MouseArea {
                 id: lineDrag
 
@@ -130,7 +153,7 @@ Item {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 preventStealing: true
-                acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+                acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
 
                 function place(mouse) {
                     const x = mouse.x + lineDrag.anchors.margins - handle.width / 2;
@@ -141,16 +164,23 @@ Item {
                 }
 
                 onPressed: mouse => {
-                    if (mouse.button === Qt.MiddleButton)
+                    if (mouse.button === Qt.RightButton)
+                        pad.bypassToggled();
+                    else if (pad.bypassed)
+                        return;
+                    else if (mouse.button === Qt.MiddleButton)
                         pad.recentred();
                     else
                         place(mouse);
                 }
                 onPositionChanged: mouse => {
-                    if (pressedButtons & Qt.LeftButton)
+                    if (!pad.bypassed && pressedButtons & Qt.LeftButton)
                         place(mouse);
                 }
-                onWheel: wheel => pad.nudged(wheel.angleDelta.y > 0)
+                onWheel: wheel => {
+                    if (!pad.bypassed)
+                        pad.nudged(wheel.angleDelta.y > 0);
+                }
             }
         }
     }
@@ -197,6 +227,7 @@ Item {
         }
 
         visible: pad.groups.length >= 3
+        opacity: pad.bypassed ? 0.38 : 1
         width: parent.width
         height: topRoom + (maxY - minY) * unit + bottomRoom
 
@@ -208,12 +239,62 @@ Item {
             font.pixelSize: Theme.fontSizeSmall
         }
 
+        Behavior on opacity {
+            NumberAnimation {
+                duration: Theme.shortDuration
+            }
+        }
+
+        // the sectors between the centre and two neighbouring vertices, closed off by either one's mute
+        readonly property var sectors: pad.vertices.map((v, i) => {
+            const j = (i + 1) % pad.vertices.length;
+            return {
+                "open": !(pad.muted[i] ?? false) && !(pad.muted[j] ?? false),
+                "path": [polygon.at(Mixer.centre()), polygon.at(v), polygon.at(pad.vertices[j]), polygon.at(Mixer.centre())]
+            };
+        })
+        // spokes to unmuted vertices; one with no open sector beside it is the dot's only way there
+        readonly property var spokes: pad.vertices.map((v, i) => ({
+                    "open": !(pad.muted[i] ?? false),
+                    "alone": !(sectors[i]?.open ?? false) && !(sectors[(i + pad.vertices.length - 1) % pad.vertices.length]?.open ?? false),
+                    "path": [polygon.at(Mixer.centre()), polygon.at(v)]
+                }))
+
+        // a vertex's marker or label under the pointer, else -1
+        function groupAt(x, y) {
+            for (let i = 0; i < pad.vertices.length; i++) {
+                for (const item of [markers.itemAt(i), labels.itemAt(i)]) {
+                    if (item && item.contains(item.mapFromItem(polygon, x, y)))
+                        return i;
+                }
+            }
+            return -1;
+        }
+
         Shape {
             anchors.fill: parent
             preferredRendererType: Shape.CurveRenderer
 
             ShapePath {
-                fillColor: Theme.withAlpha(Theme.primary, 0.06)
+                fillColor: pad.openFill
+                strokeColor: "transparent"
+
+                PathMultiline {
+                    paths: polygon.sectors.filter(s => s.open).map(s => s.path)
+                }
+            }
+
+            ShapePath {
+                fillColor: pad.closedFill
+                strokeColor: "transparent"
+
+                PathMultiline {
+                    paths: polygon.sectors.filter(s => !s.open).map(s => s.path)
+                }
+            }
+
+            ShapePath {
+                fillColor: "transparent"
                 strokeColor: Theme.outlineVariant
                 strokeWidth: 1.5
                 joinStyle: ShapePath.RoundJoin
@@ -223,7 +304,7 @@ Item {
                 }
             }
 
-            // the centre, where all are full, to each vertex
+            // the centre, where all are full, to each unmuted vertex
             ShapePath {
                 fillColor: "transparent"
                 strokeColor: Theme.outlineVariant
@@ -232,12 +313,26 @@ Item {
                 dashPattern: [2, 3]
 
                 PathMultiline {
-                    paths: pad.vertices.map(v => [polygon.at(Mixer.centre()), polygon.at(v)])
+                    paths: polygon.spokes.filter(s => s.open && !s.alone).map(s => s.path)
+                }
+            }
+
+            // a spoke that's all the dot has left towards its vertex
+            ShapePath {
+                fillColor: "transparent"
+                strokeColor: Theme.withAlpha(Theme.primary, 0.5)
+                strokeWidth: 2
+                capStyle: ShapePath.RoundCap
+
+                PathMultiline {
+                    paths: polygon.spokes.filter(s => s.open && s.alone).map(s => s.path)
                 }
             }
         }
 
         Repeater {
+            id: markers
+
             model: pad.vertices
 
             // its group's icon in its tone, fading with its factor; greyed with a muted icon when muted
@@ -263,17 +358,12 @@ Item {
                     size: Theme.iconSizeSmall
                     color: marker.muted ? Theme.surfaceVariantText : [Theme.onPrimaryContainer, Theme.onTertiaryContainer, Theme.onSecondaryContainer][marker.index % 3]
                 }
-
-                // the dot's drag area above takes left and middle; right comes through to here
-                MouseArea {
-                    anchors.fill: parent
-                    acceptedButtons: Qt.RightButton
-                    onClicked: pad.muteToggled(marker.index)
-                }
             }
         }
 
         Repeater {
+            id: labels
+
             model: pad.vertices
 
             // name over factor: beside a side vertex, above or below a top or bottom one
@@ -313,13 +403,6 @@ Item {
                         color: Theme.surfaceVariantText
                     }
                 }
-
-                // outside the column, so it isn't laid out as a row of its own
-                MouseArea {
-                    anchors.fill: parent
-                    acceptedButtons: Qt.RightButton
-                    onClicked: pad.muteToggled(label.index)
-                }
             }
         }
 
@@ -332,8 +415,8 @@ Item {
             width: polyHandle.width + Theme.spacingM
             height: width
             radius: width / 2
-            color: Theme.primary
-            opacity: polyDrag.pressed ? 0.16 : polyDrag.containsMouse ? 0.08 : 0
+            color: pad.dotColor
+            opacity: pad.bypassed ? 0 : polyDrag.pressed ? 0.16 : polyDrag.containsMouse ? 0.08 : 0
 
             Behavior on opacity {
                 NumberAnimation {
@@ -352,11 +435,12 @@ Item {
             width: Theme.iconSizeSmall + Theme.spacingXS
             height: width
             radius: width / 2
-            color: Theme.primary
+            color: pad.dotColor
             border.width: 2
             border.color: Theme.surfaceContainer
         }
 
+        // right-click: a vertex's marker or label mutes its group, inside the shape switches the mixer
         MouseArea {
             id: polyDrag
 
@@ -364,19 +448,31 @@ Item {
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             preventStealing: true
-            acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+            acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
 
             onPressed: mouse => {
-                if (mouse.button === Qt.MiddleButton)
+                if (mouse.button === Qt.RightButton) {
+                    const group = polygon.groupAt(mouse.x, mouse.y);
+                    if (group >= 0)
+                        pad.muteToggled(group);
+                    else if (Mixer.inside(pad.vertices, polygon.from(mouse.x, mouse.y)))
+                        pad.bypassToggled();
+                } else if (pad.bypassed) {
+                    return;
+                } else if (mouse.button === Qt.MiddleButton) {
                     pad.recentred();
-                else
+                } else {
                     pad.moved(polygon.from(mouse.x, mouse.y));
+                }
             }
             onPositionChanged: mouse => {
-                if (pressedButtons & Qt.LeftButton)
+                if (!pad.bypassed && pressedButtons & Qt.LeftButton)
                     pad.moved(polygon.from(mouse.x, mouse.y));
             }
-            onWheel: wheel => pad.nudged(wheel.angleDelta.y > 0)
+            onWheel: wheel => {
+                if (!pad.bypassed)
+                    pad.nudged(wheel.angleDelta.y > 0);
+            }
         }
     }
 }
