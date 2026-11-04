@@ -141,161 +141,201 @@ Item {
         }
     }
 
-    // three or more: each vertex a group, their factors in the chips below
-    Column {
+    // three or more: a marker at each vertex, its group's name and factor beside it
+    Item {
         id: polygon
+
+        // the polygon's extent in mixer units; a triangle leaves the bottom of its circle empty
+        readonly property real minY: Math.min(...pad.vertices.map(v => v.y))
+        readonly property real maxY: Math.max(...pad.vertices.map(v => v.y))
+
+        readonly property real markerSize: Theme.buttonHeightXS - Theme.spacingXS
+        readonly property real labelGap: Theme.spacingXS
+        readonly property real labelWidth: 80
+        readonly property real labelHeight: probe.implicitHeight * 2
+        readonly property bool hasTop: pad.vertices.some(v => side(v) === 0 && v.y < 0.5)
+        readonly property bool hasBottom: pad.vertices.some(v => side(v) === 0 && v.y > 0.5)
+
+        // room around the polygon for markers and labels
+        readonly property real sideRoom: markerSize / 2 + labelGap + labelWidth
+        readonly property real edgeRoom: Math.max(markerSize, labelHeight) / 2 + 2
+        readonly property real topRoom: hasTop ? markerSize / 2 + labelGap + labelHeight : edgeRoom
+        readonly property real bottomRoom: hasBottom ? markerSize / 2 + labelGap + labelHeight : edgeRoom
+
+        // pixels per mixer unit
+        readonly property real unit: Math.max(80, Math.min(200, width - sideRoom * 2))
+
+        // left of centre -1, right 1, top or bottom 0
+        function side(v) {
+            const dx = v.x - 0.5;
+            return Math.abs(dx) > 0.2 ? (dx > 0 ? 1 : -1) : 0;
+        }
+
+        function at(p) {
+            return Qt.point(width / 2 + (p.x - 0.5) * unit, topRoom + (p.y - minY) * unit);
+        }
+
+        function from(x, y) {
+            return {
+                "x": (x - width / 2) / unit + 0.5,
+                "y": (y - topRoom) / unit + minY
+            };
+        }
 
         visible: pad.groups.length >= 3
         width: parent.width
-        spacing: Theme.spacingS
+        height: topRoom + (maxY - minY) * unit + bottomRoom
 
-        Item {
-            id: area
+        StyledText {
+            id: probe
 
-            // room for the vertex markers
-            readonly property real inset: Theme.buttonHeightXS / 2 + 2
-            readonly property real span: width - inset * 2
+            visible: false
+            text: "Ag"
+            font.pixelSize: Theme.fontSizeSmall
+        }
 
-            function at(p) {
-                return Qt.point(inset + p.x * span, inset + p.y * span);
-            }
+        Shape {
+            anchors.fill: parent
+            preferredRendererType: Shape.CurveRenderer
 
-            anchors.horizontalCenter: parent.horizontalCenter
-            width: Math.min(parent.width, 200)
-            height: width
+            ShapePath {
+                fillColor: Theme.withAlpha(Theme.primary, 0.06)
+                strokeColor: Theme.outlineVariant
+                strokeWidth: 1.5
+                joinStyle: ShapePath.RoundJoin
 
-            Shape {
-                anchors.fill: parent
-                preferredRendererType: Shape.CurveRenderer
-
-                ShapePath {
-                    fillColor: Theme.withAlpha(Theme.primary, 0.06)
-                    strokeColor: Theme.outlineVariant
-                    strokeWidth: 1.5
-                    joinStyle: ShapePath.RoundJoin
-
-                    PathPolyline {
-                        path: pad.vertices.concat(pad.vertices.slice(0, 1)).map(v => area.at(v))
-                    }
-                }
-
-                // the centre to each vertex
-                ShapePath {
-                    fillColor: "transparent"
-                    strokeColor: Theme.outlineVariant
-                    strokeWidth: 1
-                    strokeStyle: ShapePath.DashLine
-                    dashPattern: [2, 3]
-
-                    PathMultiline {
-                        paths: pad.vertices.map(v => [area.at(Mixer.centre()), area.at(v)])
-                    }
+                PathPolyline {
+                    path: pad.vertices.concat(pad.vertices.slice(0, 1)).map(v => polygon.at(v))
                 }
             }
 
-            Repeater {
-                model: pad.vertices
+            // the centre, where all are full, to each vertex
+            ShapePath {
+                fillColor: "transparent"
+                strokeColor: Theme.outlineVariant
+                strokeWidth: 1
+                strokeStyle: ShapePath.DashLine
+                dashPattern: [2, 3]
 
-                // its group's icon in its tone, fading with its factor
-                Rectangle {
-                    id: marker
-
-                    required property var modelData
-                    required property int index
-                    readonly property point centre: area.at(modelData)
-
-                    x: centre.x - width / 2
-                    y: centre.y - height / 2
-                    width: Theme.buttonHeightXS - Theme.spacingXS
-                    height: width
-                    radius: width / 2
-                    color: [Theme.primaryContainer, Theme.tertiaryContainer, Theme.secondaryContainer][index % 3]
-                    opacity: 0.45 + 0.55 * (pad.factors[index] ?? 1)
-
-                    DIcon {
-                        anchors.centerIn: parent
-                        name: pad.groups[marker.index]?.icon ?? ""
-                        size: Theme.iconSizeSmall
-                        color: [Theme.onPrimaryContainer, Theme.onTertiaryContainer, Theme.onSecondaryContainer][marker.index % 3]
-                    }
+                PathMultiline {
+                    paths: pad.vertices.map(v => [polygon.at(Mixer.centre()), polygon.at(v)])
                 }
-            }
-
-            Rectangle {
-                readonly property point centre: area.at(pad.dot)
-
-                x: centre.x - width / 2
-                y: centre.y - height / 2
-                width: polyHandle.width + Theme.spacingM
-                height: width
-                radius: width / 2
-                color: Theme.primary
-                opacity: polyDrag.pressed ? 0.16 : polyDrag.containsMouse ? 0.08 : 0
-
-                Behavior on opacity {
-                    NumberAnimation {
-                        duration: Theme.shorterDuration
-                    }
-                }
-            }
-
-            Rectangle {
-                id: polyHandle
-
-                readonly property point centre: area.at(pad.dot)
-
-                x: centre.x - width / 2
-                y: centre.y - height / 2
-                width: Theme.iconSizeSmall + Theme.spacingXS
-                height: width
-                radius: width / 2
-                color: Theme.primary
-                border.width: 2
-                border.color: Theme.surfaceContainer
-            }
-
-            MouseArea {
-                id: polyDrag
-
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                preventStealing: true
-
-                function place(mouse) {
-                    pad.moved({
-                        "x": (mouse.x - area.inset) / area.span,
-                        "y": (mouse.y - area.inset) / area.span
-                    });
-                }
-
-                onPressed: mouse => place(mouse)
-                onPositionChanged: mouse => {
-                    if (pressed)
-                        place(mouse);
-                }
-                onDoubleClicked: pad.recentred()
-                onWheel: wheel => pad.nudged(wheel.angleDelta.y > 0)
             }
         }
 
-        Flow {
-            width: parent.width
-            spacing: Theme.spacingXS
+        Repeater {
+            model: pad.vertices
 
-            Repeater {
-                model: pad.groups
+            // its group's icon in its tone, fading with its factor
+            Rectangle {
+                id: marker
 
-                GroupBadge {
-                    required property var modelData
-                    required property int index
+                required property var modelData
+                required property int index
+                readonly property point centre: polygon.at(modelData)
 
-                    tone: index
-                    icon: modelData.icon
-                    name: modelData.name
-                    factor: pad.factors[index] ?? 1
+                x: centre.x - width / 2
+                y: centre.y - height / 2
+                width: polygon.markerSize
+                height: width
+                radius: width / 2
+                color: [Theme.primaryContainer, Theme.tertiaryContainer, Theme.secondaryContainer][index % 3]
+                opacity: 0.45 + 0.55 * (pad.factors[index] ?? 1)
+
+                DIcon {
+                    anchors.centerIn: parent
+                    name: pad.groups[marker.index]?.icon ?? ""
+                    size: Theme.iconSizeSmall
+                    color: [Theme.onPrimaryContainer, Theme.onTertiaryContainer, Theme.onSecondaryContainer][marker.index % 3]
                 }
             }
+        }
+
+        Repeater {
+            model: pad.vertices
+
+            // name over factor: beside a side vertex, above or below a top or bottom one
+            Column {
+                id: label
+
+                required property var modelData
+                required property int index
+                readonly property int side: polygon.side(modelData)
+                readonly property point centre: polygon.at(modelData)
+                readonly property real reach: polygon.markerSize / 2 + polygon.labelGap
+
+                x: side > 0 ? centre.x + reach : side < 0 ? centre.x - reach - width : centre.x - width / 2
+                y: side !== 0 ? centre.y - height / 2 : modelData.y < 0.5 ? centre.y - reach - height : centre.y + reach
+
+                StyledText {
+                    x: label.side < 0 ? label.width - width : label.side > 0 ? 0 : (label.width - width) / 2
+                    width: Math.min(implicitWidth, polygon.labelWidth)
+                    text: pad.groups[label.index]?.name ?? ""
+                    font.pixelSize: Theme.fontSizeSmall
+                    font.weight: Theme.fontWeightMedium
+                    color: Theme.surfaceText
+                    wrapMode: Text.NoWrap
+                    elide: Text.ElideRight
+                }
+
+                StyledText {
+                    x: label.side < 0 ? label.width - width : label.side > 0 ? 0 : (label.width - width) / 2
+                    text: Math.round((pad.factors[label.index] ?? 1) * 100) + "%"
+                    font.pixelSize: Theme.fontSizeSmall
+                    color: Theme.surfaceVariantText
+                }
+            }
+        }
+
+        // hover and press ring, then the dot
+        Rectangle {
+            readonly property point centre: polygon.at(pad.dot)
+
+            x: centre.x - width / 2
+            y: centre.y - height / 2
+            width: polyHandle.width + Theme.spacingM
+            height: width
+            radius: width / 2
+            color: Theme.primary
+            opacity: polyDrag.pressed ? 0.16 : polyDrag.containsMouse ? 0.08 : 0
+
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: Theme.shorterDuration
+                }
+            }
+        }
+
+        Rectangle {
+            id: polyHandle
+
+            readonly property point centre: polygon.at(pad.dot)
+
+            x: centre.x - width / 2
+            y: centre.y - height / 2
+            width: Theme.iconSizeSmall + Theme.spacingXS
+            height: width
+            radius: width / 2
+            color: Theme.primary
+            border.width: 2
+            border.color: Theme.surfaceContainer
+        }
+
+        MouseArea {
+            id: polyDrag
+
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            preventStealing: true
+
+            onPressed: mouse => pad.moved(polygon.from(mouse.x, mouse.y))
+            onPositionChanged: mouse => {
+                if (pressed)
+                    pad.moved(polygon.from(mouse.x, mouse.y));
+            }
+            onDoubleClicked: pad.recentred()
+            onWheel: wheel => pad.nudged(wheel.angleDelta.y > 0)
         }
     }
 }
