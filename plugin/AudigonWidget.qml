@@ -344,6 +344,7 @@ PluginComponent {
                     devices: root.sinks
                     maxVolume: root.sinkMaxVolume
                     metering: root.metering
+                    transientSurfaceTracker: popout.parentPopout?.transientSurfaceTracker ?? null
                     firstInGroup: true
                     lastInGroup: false
                     onPicked: device => AudioService.setSink(device)
@@ -354,6 +355,7 @@ PluginComponent {
                     devices: root.sources
                     isInput: true
                     metering: root.metering
+                    transientSurfaceTracker: popout.parentPopout?.transientSurfaceTracker ?? null
                     firstInGroup: false
                     lastInGroup: true
                     onPicked: device => AudioService.setSource(device)

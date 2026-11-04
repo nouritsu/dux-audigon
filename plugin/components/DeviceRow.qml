@@ -14,6 +14,8 @@ DListRow {
     property bool isInput: false
     property int maxVolume: 100
     property bool metering: false
+    // the popout's, so the picker's menu doesn't count as a click outside it
+    property var transientSurfaceTracker: null
 
     readonly property var audio: node?.audio ?? null
     readonly property int level: audio ? Math.round(audio.volume * 100) : 0
@@ -47,6 +49,7 @@ DListRow {
                 anchors.verticalCenter: parent.verticalCenter
                 dropdownWidth: header.width - meter.width - Theme.spacingS * 2
                 compactMode: true
+                transientSurfaceTracker: row.transientSurfaceTracker
                 options: row.devices.map(device => AudioService.displayName(device))
                 optionValues: row.devices.map(device => device.name)
                 optionIcons: row.devices.map(device => row.isInput ? "mic" : AudioService.sinkIcon(device))
