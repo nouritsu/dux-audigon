@@ -106,7 +106,7 @@ PluginComponent {
             node.audio.volume = clamped / 100;
     }
 
-    // {tone, icon, name, factor} for the app row's badge; null when ungrouped
+    // {tone, icon, name, factor, muted} for the app row's badge; null when ungrouped
     function streamGroup(node) {
         const index = daemon?.groupIndex(node) ?? -1;
         if (index < 0)
@@ -116,16 +116,9 @@ PluginComponent {
             "tone": index,
             "icon": group.icon,
             "name": group.name,
-            "factor": daemon.factors[index] ?? 1
+            "factor": daemon.effectiveFactors[index] ?? 1,
+            "muted": daemon.muted[index] ?? false
         };
-    }
-
-    function adjustStreamVolume(node, delta) {
-        if (!node?.audio)
-            return;
-        if (node.audio.muted)
-            node.audio.muted = false;
-        setStreamLevel(node, streamLevel(node) + delta);
     }
 
     // back to 100%
@@ -400,7 +393,8 @@ PluginComponent {
                         anchors.rightMargin: Theme.spacingS
                         anchors.verticalCenter: parent.verticalCenter
                         groups: root.daemon?.groups ?? []
-                        factors: root.daemon?.factors ?? []
+                        factors: root.daemon?.effectiveFactors ?? []
+                        muted: root.daemon?.muted ?? []
                         dot: root.daemon?.dot ?? ({
                                 "x": 0.5,
                                 "y": 0.5
@@ -408,6 +402,7 @@ PluginComponent {
                         onMoved: point => root.daemon?.setDot(point)
                         onNudged: towardsVertex => root.daemon?.nudgeDot(towardsVertex)
                         onRecentred: root.daemon?.recentre()
+                        onMuteToggled: index => root.daemon?.toggleGroupMute(index)
                     }
                 }
 
@@ -450,11 +445,10 @@ PluginComponent {
                                 fallbackIcon: root.streamFallbackIcon(modelData)
                                 level: root.streamLevel(modelData)
                                 maxVolume: root.maxVolumePercent
-                                wheelStep: root.volumeScrollStep
                                 metering: root.metering
                                 group: root.streamGroup(modelData)
                                 onLevelSet: value => root.setStreamLevel(modelData, value)
-                                onNudged: delta => root.adjustStreamVolume(modelData, delta)
+                                onGroupMuteToggled: root.daemon?.toggleGroupMute(root.daemon.groupIndex(modelData))
                                 onResetRequested: root.resetStreamVolume(modelData)
                                 onMuteToggled: modelData.audio.muted = !modelData.audio.muted
                             }
