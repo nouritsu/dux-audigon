@@ -45,7 +45,14 @@ PluginComponent {
 
     // normalised, kept in plugin state
     property var dot: Mixer.centre()
+    // where the dot puts each group, before mutes
     readonly property var factors: active ? Mixer.factors(vertices, dot) : groups.map(() => 1)
+
+    // names of the groups muted from the mixer, kept in plugin state; a muted group's factor is 0,
+    // so its apps keep their own levels and the stream mute stays the app's
+    property var mutedGroups: []
+    readonly property var muted: groups.map(group => active && mutedGroups.includes(group.name))
+    readonly property var effectiveFactors: factors.map((factor, i) => muted[i] ? 0 : factor)
 
     // app key -> its own level, before the factor; kept in plugin state
     property var bases: ({})
@@ -165,7 +172,15 @@ PluginComponent {
 
     function factorOf(node) {
         const group = groupIndex(node);
-        return group >= 0 ? factors[group] ?? 1 : 1;
+        return group >= 0 ? effectiveFactors[group] ?? 1 : 1;
+    }
+
+    function toggleGroupMute(index) {
+        const name = groups[index]?.name;
+        if (name === undefined)
+            return;
+        mutedGroups = mutedGroups.includes(name) ? mutedGroups.filter(n => n !== name) : mutedGroups.concat([name]);
+        saveTimer.restart();
     }
 
     // the app's own level in percent: its base when grouped, else its real volume
@@ -228,7 +243,7 @@ PluginComponent {
             if (group < 0)
                 continue;
 
-            const factor = factors[group] ?? 1;
+            const factor = effectiveFactors[group] ?? 1;
             let base = next[key];
             if (base === undefined) {
                 // first sight: what wireplumber restored is the app's own level
@@ -336,7 +351,7 @@ PluginComponent {
         resolve();
         Qt.callLater(prune);
     }
-    onFactorsChanged: scheduleApply()
+    onEffectiveFactorsChanged: scheduleApply()
     onGroupByNodeChanged: scheduleApply()
     onVolumesChanged: scheduleApply()
     onActiveChanged: {
@@ -374,6 +389,7 @@ PluginComponent {
         onTriggered: {
             PluginService.savePluginState(root.pluginId, "dot", root.dot);
             PluginService.savePluginState(root.pluginId, "bases", root.bases);
+            PluginService.savePluginState(root.pluginId, "mutedGroups", root.mutedGroups);
         }
     }
 
@@ -390,6 +406,7 @@ PluginComponent {
     Component.onCompleted: {
         dot = Mixer.clamp(vertices, PluginService.loadPluginState(pluginId, "dot", Mixer.centre()));
         bases = PluginService.loadPluginState(pluginId, "bases", {});
+        mutedGroups = PluginService.loadPluginState(pluginId, "mutedGroups", []);
         resolve();
     }
 

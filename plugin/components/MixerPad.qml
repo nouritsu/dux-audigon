@@ -7,12 +7,14 @@ import qs.DCommon.Widgets
 import "../lib/mixer.js" as Mixer
 
 // the mixer: a dot on a line between two groups, or inside a polygon of three or more;
-// drag it, scroll to nudge it, double-click to recentre
+// drag it, scroll to nudge it, middle-click to recentre, right-click a group to mute it
 Item {
     id: pad
 
     property var groups: []
+    // after mutes
     property var factors: []
+    property var muted: []
     property var dot: ({
             "x": 0.5,
             "y": 0.5
@@ -24,6 +26,7 @@ Item {
     signal moved(var point)
     signal nudged(bool towardsVertex)
     signal recentred
+    signal muteToggled(int index)
 
     width: parent?.width ?? 0
     implicitHeight: groups.length === 2 ? line.height : polygon.height
@@ -44,6 +47,9 @@ Item {
             icon: pad.groups[0]?.icon ?? ""
             name: pad.groups[0]?.name ?? ""
             factor: pad.factors[0] ?? 1
+            muted: pad.muted[0] ?? false
+            muteable: true
+            onMuteToggled: pad.muteToggled(0)
         }
 
         GroupBadge {
@@ -55,6 +61,9 @@ Item {
             icon: pad.groups[1]?.icon ?? ""
             name: pad.groups[1]?.name ?? ""
             factor: pad.factors[1] ?? 1
+            muted: pad.muted[1] ?? false
+            muteable: true
+            onMuteToggled: pad.muteToggled(1)
         }
 
         Item {
@@ -121,6 +130,7 @@ Item {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 preventStealing: true
+                acceptedButtons: Qt.LeftButton | Qt.MiddleButton
 
                 function place(mouse) {
                     const x = mouse.x + lineDrag.anchors.margins - handle.width / 2;
@@ -130,12 +140,16 @@ Item {
                     });
                 }
 
-                onPressed: mouse => place(mouse)
-                onPositionChanged: mouse => {
-                    if (pressed)
+                onPressed: mouse => {
+                    if (mouse.button === Qt.MiddleButton)
+                        pad.recentred();
+                    else
                         place(mouse);
                 }
-                onDoubleClicked: pad.recentred()
+                onPositionChanged: mouse => {
+                    if (pressedButtons & Qt.LeftButton)
+                        place(mouse);
+                }
                 onWheel: wheel => pad.nudged(wheel.angleDelta.y > 0)
             }
         }
@@ -226,27 +240,35 @@ Item {
         Repeater {
             model: pad.vertices
 
-            // its group's icon in its tone, fading with its factor
+            // its group's icon in its tone, fading with its factor; greyed with a muted icon when muted
             Rectangle {
                 id: marker
 
                 required property var modelData
                 required property int index
                 readonly property point centre: polygon.at(modelData)
+                readonly property bool muted: pad.muted[index] ?? false
 
                 x: centre.x - width / 2
                 y: centre.y - height / 2
                 width: polygon.markerSize
                 height: width
                 radius: width / 2
-                color: [Theme.primaryContainer, Theme.tertiaryContainer, Theme.secondaryContainer][index % 3]
-                opacity: 0.45 + 0.55 * (pad.factors[index] ?? 1)
+                color: muted ? Theme.surfaceContainerHighest : [Theme.primaryContainer, Theme.tertiaryContainer, Theme.secondaryContainer][index % 3]
+                opacity: muted ? 1 : 0.45 + 0.55 * (pad.factors[index] ?? 1)
 
                 DIcon {
                     anchors.centerIn: parent
-                    name: pad.groups[marker.index]?.icon ?? ""
+                    name: marker.muted ? "volume_off" : pad.groups[marker.index]?.icon ?? ""
                     size: Theme.iconSizeSmall
-                    color: [Theme.onPrimaryContainer, Theme.onTertiaryContainer, Theme.onSecondaryContainer][marker.index % 3]
+                    color: marker.muted ? Theme.surfaceVariantText : [Theme.onPrimaryContainer, Theme.onTertiaryContainer, Theme.onSecondaryContainer][marker.index % 3]
+                }
+
+                // the dot's drag area above takes left and middle; right comes through to here
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.RightButton
+                    onClicked: pad.muteToggled(marker.index)
                 }
             }
         }
@@ -267,22 +289,31 @@ Item {
                 x: side > 0 ? centre.x + reach : side < 0 ? centre.x - reach - width : centre.x - width / 2
                 y: side !== 0 ? centre.y - height / 2 : modelData.y < 0.5 ? centre.y - reach - height : centre.y + reach
 
+                readonly property bool muted: pad.muted[index] ?? false
+
                 StyledText {
                     x: label.side < 0 ? label.width - width : label.side > 0 ? 0 : (label.width - width) / 2
                     width: Math.min(implicitWidth, polygon.labelWidth)
                     text: pad.groups[label.index]?.name ?? ""
                     font.pixelSize: Theme.fontSizeSmall
                     font.weight: Theme.fontWeightMedium
-                    color: Theme.surfaceText
+                    color: label.muted ? Theme.surfaceVariantText : Theme.surfaceText
                     wrapMode: Text.NoWrap
                     elide: Text.ElideRight
                 }
 
                 StyledText {
                     x: label.side < 0 ? label.width - width : label.side > 0 ? 0 : (label.width - width) / 2
-                    text: Math.round((pad.factors[label.index] ?? 1) * 100) + "%"
+                    text: label.muted ? "Muted" : Math.round((pad.factors[label.index] ?? 1) * 100) + "%"
                     font.pixelSize: Theme.fontSizeSmall
                     color: Theme.surfaceVariantText
+                }
+
+                MouseArea {
+                    width: label.width
+                    height: label.height
+                    acceptedButtons: Qt.RightButton
+                    onClicked: pad.muteToggled(label.index)
                 }
             }
         }
@@ -328,13 +359,18 @@ Item {
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             preventStealing: true
+            acceptedButtons: Qt.LeftButton | Qt.MiddleButton
 
-            onPressed: mouse => pad.moved(polygon.from(mouse.x, mouse.y))
-            onPositionChanged: mouse => {
-                if (pressed)
+            onPressed: mouse => {
+                if (mouse.button === Qt.MiddleButton)
+                    pad.recentred();
+                else
                     pad.moved(polygon.from(mouse.x, mouse.y));
             }
-            onDoubleClicked: pad.recentred()
+            onPositionChanged: mouse => {
+                if (pressedButtons & Qt.LeftButton)
+                    pad.moved(polygon.from(mouse.x, mouse.y));
+            }
             onWheel: wheel => pad.nudged(wheel.angleDelta.y > 0)
         }
     }
