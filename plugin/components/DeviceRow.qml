@@ -5,7 +5,7 @@ import qs.Common
 import qs.Services
 import qs.DCommon.Widgets
 
-// the default output or input: device picker, then mute and volume
+// the default output or input: its name opens the device menu, then mute and volume
 DListRow {
     id: row
 
@@ -31,45 +31,113 @@ DListRow {
 
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.leftMargin: Theme.spacingS
+        // the trigger's own padding brings its icon in line with the app rows'
+        anchors.leftMargin: Theme.spacingXS
         anchors.rightMargin: Theme.spacingS
         anchors.verticalCenter: parent.verticalCenter
-        spacing: Theme.spacingXS
+        spacing: Theme.spacingXXS
 
         Item {
             id: header
 
             width: parent.width
-            height: picker.height
+            height: Theme.buttonHeightXS
 
-            DDropdown {
-                id: picker
+            // icon, name and chevron, with a pill state layer, like dux's own menu labels
+            Item {
+                id: trigger
+
+                readonly property real maxWidth: header.width - meter.width - Theme.spacingXS
 
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
-                dropdownWidth: header.width - meter.width - Theme.spacingS * 2
-                compactMode: true
-                transientSurfaceTracker: row.transientSurfaceTracker
-                options: row.devices.map(device => AudioService.displayName(device))
-                optionValues: row.devices.map(device => device.name)
-                optionIcons: row.devices.map(device => row.isInput ? "mic" : AudioService.sinkIcon(device))
-                currentValue: row.node?.name ?? ""
-                emptyText: row.isInput ? "No input devices" : "No output devices"
-                onValueChanged: value => {
-                    const device = row.devices.find(d => d.name === value);
-                    if (device)
-                        row.picked(device);
+                width: Math.min(triggerRow.implicitWidth + Theme.spacingS * 2, maxWidth)
+                height: Theme.buttonHeightXS
+
+                Row {
+                    id: triggerRow
+
+                    anchors.left: parent.left
+                    anchors.leftMargin: Theme.spacingS
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: Theme.spacingS
+
+                    DIcon {
+                        id: deviceIcon
+
+                        anchors.verticalCenter: parent.verticalCenter
+                        name: row.isInput ? "mic" : AudioService.sinkIcon(row.node)
+                        size: Theme.iconSizeMedium
+                        color: Theme.surfaceVariantText
+                    }
+
+                    StyledText {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Math.min(implicitWidth, trigger.maxWidth - Theme.spacingS * 2 - deviceIcon.width - chevron.width - triggerRow.spacing * 2)
+                        text: row.node ? AudioService.displayName(row.node) : picker.emptyText
+                        font.pixelSize: Theme.fontSizeSmall
+                        font.weight: Theme.fontWeightMedium
+                        color: row.node ? Theme.surfaceText : Theme.surfaceVariantText
+                        wrapMode: Text.NoWrap
+                        elide: Text.ElideRight
+                    }
+
+                    DIcon {
+                        id: chevron
+
+                        anchors.verticalCenter: parent.verticalCenter
+                        name: "arrow_drop_down"
+                        size: Theme.iconSizeMedium
+                        color: Theme.surfaceVariantText
+                        rotation: picker.menuOpen ? 180 : 0
+
+                        Behavior on rotation {
+                            NumberAnimation {
+                                duration: Theme.shortDuration
+                                easing.type: Theme.standardEasing
+                            }
+                        }
+                    }
+                }
+
+                StateLayer {
+                    cornerRadius: height / 2
+                    tooltipText: row.isInput ? "Input device" : "Output device"
+                    tooltipSide: "top"
+                    onClicked: picker.openDropdownMenu()
                 }
             }
 
             LevelMeter {
                 id: meter
 
-                anchors.right: parent.right
-                anchors.rightMargin: Theme.spacingXS
+                anchors.left: trigger.right
+                anchors.leftMargin: Theme.spacingXS
                 anchors.verticalCenter: parent.verticalCenter
                 node: row.node
                 active: row.metering
+            }
+
+            // menu only; the label above is its trigger
+            DDropdown {
+                id: picker
+
+                showTrigger: false
+                focusPolicy: Qt.NoFocus
+                compactMode: true
+                popupAnchorItem: trigger
+                popupWidth: header.width
+                transientSurfaceTracker: row.transientSurfaceTracker
+                options: row.devices.map(device => AudioService.displayName(device))
+                optionValues: row.devices.map(device => device.name)
+                optionIcons: row.devices.map(device => row.isInput ? "mic" : AudioService.sinkIcon(device))
+                currentValue: row.node?.name ?? ""
+                emptyText: row.isInput ? "No input device" : "No output device"
+                onValueChanged: value => {
+                    const device = row.devices.find(d => d.name === value);
+                    if (device)
+                        row.picked(device);
+                }
             }
         }
 
