@@ -250,7 +250,8 @@ PluginComponent {
                     "at": now
                 };
                 wrote = true;
-            } else if (!written) {
+            } else if (!written || Math.abs(current - written.value) > 0.005) {
+                // already right, or just adopted as the new level: remember it so it isn't adopted again
                 _written[node.id] = {
                     "value": current,
                     "at": 0
