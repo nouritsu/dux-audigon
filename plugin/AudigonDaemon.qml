@@ -35,7 +35,7 @@ PluginComponent {
         }
     ]
     readonly property string chatApps: "vesktop|discord|webcord|legcord|teams|zoom|skype|mumble|teamspeak|signal|element"
-    readonly property int maxGroups: 2
+    readonly property int maxGroups: 8
 
     readonly property bool mixerEnabled: pluginData.mixerEnabled ?? true
     readonly property var groups: normalise(pluginData.groups)

@@ -14,7 +14,7 @@ PluginSettings {
 
     // the daemon normalises what's saved, so its defaults show until something is
     readonly property var daemon: PluginService.pluginDaemonInstances[pluginId] ?? null
-    readonly property int maxGroups: daemon?.maxGroups ?? 2
+    readonly property int maxGroups: daemon?.maxGroups ?? 8
     readonly property var roleOptions: ["Game", "Communication", "Music", "Movie", "Notification", "Production", "Accessibility"]
     property var groups: []
 
