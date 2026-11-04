@@ -277,7 +277,7 @@ Item {
             model: pad.vertices
 
             // name over factor: beside a side vertex, above or below a top or bottom one
-            Column {
+            Item {
                 id: label
 
                 required property var modelData
@@ -285,33 +285,38 @@ Item {
                 readonly property int side: polygon.side(modelData)
                 readonly property point centre: polygon.at(modelData)
                 readonly property real reach: polygon.markerSize / 2 + polygon.labelGap
+                readonly property bool muted: pad.muted[index] ?? false
 
                 x: side > 0 ? centre.x + reach : side < 0 ? centre.x - reach - width : centre.x - width / 2
                 y: side !== 0 ? centre.y - height / 2 : modelData.y < 0.5 ? centre.y - reach - height : centre.y + reach
+                width: texts.implicitWidth
+                height: texts.implicitHeight
 
-                readonly property bool muted: pad.muted[index] ?? false
+                Column {
+                    id: texts
 
-                StyledText {
-                    x: label.side < 0 ? label.width - width : label.side > 0 ? 0 : (label.width - width) / 2
-                    width: Math.min(implicitWidth, polygon.labelWidth)
-                    text: pad.groups[label.index]?.name ?? ""
-                    font.pixelSize: Theme.fontSizeSmall
-                    font.weight: Theme.fontWeightMedium
-                    color: label.muted ? Theme.surfaceVariantText : Theme.surfaceText
-                    wrapMode: Text.NoWrap
-                    elide: Text.ElideRight
+                    StyledText {
+                        x: label.side < 0 ? label.width - width : label.side > 0 ? 0 : (label.width - width) / 2
+                        width: Math.min(implicitWidth, polygon.labelWidth)
+                        text: pad.groups[label.index]?.name ?? ""
+                        font.pixelSize: Theme.fontSizeSmall
+                        font.weight: Theme.fontWeightMedium
+                        color: label.muted ? Theme.surfaceVariantText : Theme.surfaceText
+                        wrapMode: Text.NoWrap
+                        elide: Text.ElideRight
+                    }
+
+                    StyledText {
+                        x: label.side < 0 ? label.width - width : label.side > 0 ? 0 : (label.width - width) / 2
+                        text: label.muted ? "Muted" : Math.round((pad.factors[label.index] ?? 1) * 100) + "%"
+                        font.pixelSize: Theme.fontSizeSmall
+                        color: Theme.surfaceVariantText
+                    }
                 }
 
-                StyledText {
-                    x: label.side < 0 ? label.width - width : label.side > 0 ? 0 : (label.width - width) / 2
-                    text: label.muted ? "Muted" : Math.round((pad.factors[label.index] ?? 1) * 100) + "%"
-                    font.pixelSize: Theme.fontSizeSmall
-                    color: Theme.surfaceVariantText
-                }
-
+                // outside the column, so it isn't laid out as a row of its own
                 MouseArea {
-                    width: label.width
-                    height: label.height
+                    anchors.fill: parent
                     acceptedButtons: Qt.RightButton
                     onClicked: pad.muteToggled(label.index)
                 }
