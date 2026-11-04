@@ -71,8 +71,10 @@ Item {
         }
     }
 
+    // full height, so each bar centres on the meter; a delegate's parent is still null while it's built
     Row {
-        anchors.centerIn: parent
+        anchors.horizontalCenter: parent.horizontalCenter
+        height: meter.height
         spacing: meter.gap
 
         Repeater {
@@ -82,7 +84,7 @@ Item {
                 required property int index
                 readonly property real value: meter.muted ? 0 : (meter.history[meter.reach[index] * meter.lag] ?? 0) * meter.envelope[index]
 
-                anchors.verticalCenter: parent.verticalCenter
+                y: (meter.height - height) / 2
                 width: meter.barWidth
                 height: meter.minBarHeight + value * (meter.height - meter.minBarHeight)
                 radius: width / 2
