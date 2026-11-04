@@ -1,11 +1,12 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import Quickshell
 import qs.Common
 import qs.Services
 import qs.DCommon.Widgets
 
-// the default output or input: its header line opens the device menu, then mute and volume
+// the default output or input: its header line unfolds the devices below it, then mute and volume
 DListRow {
     id: row
 
@@ -14,31 +15,18 @@ DListRow {
     property bool isInput: false
     property int maxVolume: 100
     property bool metering: false
-    // dux keeps popout content loaded after close, so an open menu would outlive it
-    property bool popoutOpen: false
-    // the popout's, so the picker's menu doesn't count as a click outside it
-    property var transientSurfaceTracker: null
+    // set by the popout, so only one row is unfolded and both fold when it closes
+    property bool expanded: false
 
     readonly property var audio: node?.audio ?? null
     readonly property int level: audio ? Math.round(audio.volume * 100) : 0
     readonly property bool muted: audio?.muted ?? false
 
+    signal toggled
     signal picked(var device)
 
-    onPopoutOpenChanged: {
-        if (!popoutOpen)
-            picker.closeDropdownMenu();
-    }
-
-    // a menu still marked open but no longer on screen gets reset, so a click always opens it
-    function toggleMenu() {
-        if (picker.menuOpen && picker.menuVisible) {
-            picker.closeDropdownMenu();
-            return;
-        }
-        if (picker.menuOpen)
-            picker.closeDropdownMenu();
-        picker.showDropdownMenu();
+    function deviceIcon(device) {
+        return isInput ? "mic" : AudioService.sinkIcon(device);
     }
 
     width: parent?.width ?? 0
@@ -49,7 +37,7 @@ DListRow {
 
         anchors.left: parent.left
         anchors.right: parent.right
-        // the trigger's own padding brings its icon in line with the app rows'
+        // the header's own padding brings its icon in line with the app rows'
         anchors.leftMargin: Theme.spacingXS
         anchors.rightMargin: Theme.spacingS
         anchors.verticalCenter: parent.verticalCenter
@@ -62,58 +50,49 @@ DListRow {
             height: Theme.buttonHeightXS
 
             // icon, name and chevron, like dux's own menu labels
-            Item {
-                id: trigger
+            Row {
+                id: label
 
-                readonly property real maxWidth: header.width - meter.width - Theme.spacingXS
+                readonly property real maxWidth: header.width - meter.width - Theme.spacingXS - Theme.spacingS * 2
 
                 anchors.left: parent.left
+                anchors.leftMargin: Theme.spacingS
                 anchors.verticalCenter: parent.verticalCenter
-                width: Math.min(triggerRow.implicitWidth + Theme.spacingS * 2, maxWidth)
-                height: Theme.buttonHeightXS
+                spacing: Theme.spacingS
 
-                Row {
-                    id: triggerRow
+                DIcon {
+                    id: headerIcon
 
-                    anchors.left: parent.left
-                    anchors.leftMargin: Theme.spacingS
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: Theme.spacingS
+                    name: row.deviceIcon(row.node)
+                    size: Theme.iconSizeMedium
+                    color: Theme.surfaceVariantText
+                }
 
-                    DIcon {
-                        id: deviceIcon
+                StyledText {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: Math.min(implicitWidth, label.maxWidth - headerIcon.width - chevron.width - label.spacing * 2)
+                    text: row.node ? AudioService.displayName(row.node) : row.isInput ? "No input device" : "No output device"
+                    font.pixelSize: Theme.fontSizeSmall
+                    font.weight: Theme.fontWeightMedium
+                    color: row.node ? Theme.surfaceText : Theme.surfaceVariantText
+                    wrapMode: Text.NoWrap
+                    elide: Text.ElideRight
+                }
 
-                        anchors.verticalCenter: parent.verticalCenter
-                        name: row.isInput ? "mic" : AudioService.sinkIcon(row.node)
-                        size: Theme.iconSizeMedium
-                        color: Theme.surfaceVariantText
-                    }
+                DIcon {
+                    id: chevron
 
-                    StyledText {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: Math.min(implicitWidth, trigger.maxWidth - Theme.spacingS * 2 - deviceIcon.width - chevron.width - triggerRow.spacing * 2)
-                        text: row.node ? AudioService.displayName(row.node) : picker.emptyText
-                        font.pixelSize: Theme.fontSizeSmall
-                        font.weight: Theme.fontWeightMedium
-                        color: row.node ? Theme.surfaceText : Theme.surfaceVariantText
-                        wrapMode: Text.NoWrap
-                        elide: Text.ElideRight
-                    }
+                    anchors.verticalCenter: parent.verticalCenter
+                    name: "arrow_drop_down"
+                    size: Theme.iconSizeMedium
+                    color: Theme.surfaceVariantText
+                    rotation: row.expanded ? 180 : 0
 
-                    DIcon {
-                        id: chevron
-
-                        anchors.verticalCenter: parent.verticalCenter
-                        name: "arrow_drop_down"
-                        size: Theme.iconSizeMedium
-                        color: Theme.surfaceVariantText
-                        rotation: picker.menuOpen ? 180 : 0
-
-                        Behavior on rotation {
-                            NumberAnimation {
-                                duration: Theme.shortDuration
-                                easing.type: Theme.standardEasing
-                            }
+                    Behavior on rotation {
+                        NumberAnimation {
+                            duration: Theme.shortDuration
+                            easing.type: Theme.standardEasing
                         }
                     }
                 }
@@ -122,7 +101,7 @@ DListRow {
             LevelMeter {
                 id: meter
 
-                anchors.left: trigger.right
+                anchors.left: label.right
                 anchors.leftMargin: Theme.spacingXS
                 anchors.verticalCenter: parent.verticalCenter
                 node: row.node
@@ -132,28 +111,106 @@ DListRow {
             // the whole line is the target, not just the label
             StateLayer {
                 cornerRadius: height / 2
-                onClicked: row.toggleMenu()
+                onClicked: row.toggled()
+            }
+        }
+
+        // the devices, unfolded in place: no menu window to lose a click to
+        Item {
+            id: fold
+
+            width: parent.width
+            height: row.expanded ? options.implicitHeight : 0
+            opacity: row.expanded ? 1 : 0
+            visible: height > 0
+            clip: true
+
+            Behavior on height {
+                NumberAnimation {
+                    duration: Theme.mediumDuration
+                    easing.type: Theme.emphasizedEasing
+                }
             }
 
-            // menu only; the header line above is its trigger
-            DDropdown {
-                id: picker
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: Theme.shortDuration
+                }
+            }
 
-                showTrigger: false
-                focusPolicy: Qt.NoFocus
-                compactMode: true
-                popupAnchorItem: header
-                popupWidth: header.width
-                transientSurfaceTracker: row.transientSurfaceTracker
-                options: row.devices.map(device => AudioService.displayName(device))
-                optionValues: row.devices.map(device => device.name)
-                optionIcons: row.devices.map(device => row.isInput ? "mic" : AudioService.sinkIcon(device))
-                currentValue: row.node?.name ?? ""
-                emptyText: row.isInput ? "No input device" : "No output device"
-                onValueChanged: value => {
-                    const device = row.devices.find(d => d.name === value);
-                    if (device)
-                        row.picked(device);
+            Column {
+                id: options
+
+                width: parent.width
+                topPadding: Theme.spacingXXS
+                bottomPadding: Theme.spacingXS
+                spacing: Theme.spacingXXS
+
+                Repeater {
+                    model: ScriptModel {
+                        values: row.devices
+                    }
+
+                    // the current one sits in a filled pill, like a selected navigation item
+                    Item {
+                        id: option
+
+                        required property var modelData
+                        readonly property bool current: modelData === row.node
+
+                        width: options.width
+                        height: Theme.buttonHeightXS
+
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: height / 2
+                            color: Theme.secondaryContainer
+                            visible: option.current
+                        }
+
+                        DIcon {
+                            id: optionIcon
+
+                            anchors.left: parent.left
+                            anchors.leftMargin: Theme.spacingS
+                            anchors.verticalCenter: parent.verticalCenter
+                            name: row.deviceIcon(option.modelData)
+                            size: Theme.iconSizeMedium
+                            color: option.current ? Theme.onSecondaryContainer : Theme.surfaceVariantText
+                        }
+
+                        StyledText {
+                            anchors.left: optionIcon.right
+                            anchors.right: check.left
+                            anchors.leftMargin: Theme.spacingS
+                            anchors.rightMargin: Theme.spacingS
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: AudioService.displayName(option.modelData)
+                            font.pixelSize: Theme.fontSizeSmall
+                            font.weight: option.current ? Theme.fontWeightMedium : Font.Normal
+                            color: option.current ? Theme.onSecondaryContainer : Theme.surfaceText
+                            wrapMode: Text.NoWrap
+                            elide: Text.ElideRight
+                        }
+
+                        DIcon {
+                            id: check
+
+                            anchors.right: parent.right
+                            anchors.rightMargin: Theme.spacingS
+                            anchors.verticalCenter: parent.verticalCenter
+                            name: "check"
+                            size: Theme.iconSizeSmall
+                            color: Theme.onSecondaryContainer
+                            visible: option.current
+                        }
+
+                        StateLayer {
+                            cornerRadius: height / 2
+                            stateColor: option.current ? Theme.onSecondaryContainer : Theme.surfaceText
+                            onClicked: row.picked(option.modelData)
+                        }
+                    }
                 }
             }
         }

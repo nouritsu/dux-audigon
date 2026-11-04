@@ -239,10 +239,20 @@ PluginComponent {
     property bool micPopupMode: false
     property bool _micOpening: false
 
-    // a click opens the full popout; the mic popout keeps its size while it closes
+    // the unfolded device list, "output", "input" or none; one at a time
+    property string openPicker: ""
+
+    function togglePicker(which) {
+        openPicker = openPicker === which ? "" : which;
+    }
+
+    // a click opens the full popout; the mic popout keeps its size while it closes.
+    // dux keeps the content loaded, so the device lists fold here rather than on destruction
     onInteractionActiveChanged: {
         if (interactionActive && !_micOpening)
             micPopupMode = false;
+        if (!interactionActive)
+            openPicker = "";
         _micOpening = false;
     }
 
@@ -344,11 +354,14 @@ PluginComponent {
                     devices: root.sinks
                     maxVolume: root.sinkMaxVolume
                     metering: root.metering
-                    transientSurfaceTracker: popout.parentPopout?.transientSurfaceTracker ?? null
-                    popoutOpen: root.interactionActive
+                    expanded: root.openPicker === "output"
                     firstInGroup: true
                     lastInGroup: false
-                    onPicked: device => AudioService.setSink(device)
+                    onToggled: root.togglePicker("output")
+                    onPicked: device => {
+                        AudioService.setSink(device);
+                        root.openPicker = "";
+                    }
                 }
 
                 DeviceRow {
@@ -356,11 +369,14 @@ PluginComponent {
                     devices: root.sources
                     isInput: true
                     metering: root.metering
-                    transientSurfaceTracker: popout.parentPopout?.transientSurfaceTracker ?? null
-                    popoutOpen: root.interactionActive
+                    expanded: root.openPicker === "input"
                     firstInGroup: false
                     lastInGroup: true
-                    onPicked: device => AudioService.setSource(device)
+                    onToggled: root.togglePicker("input")
+                    onPicked: device => {
+                        AudioService.setSource(device);
+                        root.openPicker = "";
+                    }
                 }
 
                 SectionLabel {
