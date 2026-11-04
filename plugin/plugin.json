@@ -1,0 +1,12 @@
+{
+  "id": "audigon",
+  "name": "Audigon",
+  "version": "0.1.0",
+  "author": "Aneesh Bhave",
+  "icon": "volume_up",
+  "type": "widget",
+  "component": "./AudigonWidget.qml",
+  "settings": "./AudigonSettings.qml",
+  "capabilities": ["dankbar-widget"],
+  "permissions": ["settings_read", "settings_write"]
+}
