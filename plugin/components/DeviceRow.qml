@@ -5,7 +5,7 @@ import qs.Common
 import qs.Services
 import qs.DCommon.Widgets
 
-// the default output or input: its name opens the device menu, then mute and volume
+// the default output or input: its header line opens the device menu, then mute and volume
 DListRow {
     id: row
 
@@ -14,6 +14,8 @@ DListRow {
     property bool isInput: false
     property int maxVolume: 100
     property bool metering: false
+    // dux keeps popout content loaded after close, so an open menu would outlive it
+    property bool popoutOpen: false
     // the popout's, so the picker's menu doesn't count as a click outside it
     property var transientSurfaceTracker: null
 
@@ -22,6 +24,22 @@ DListRow {
     readonly property bool muted: audio?.muted ?? false
 
     signal picked(var device)
+
+    onPopoutOpenChanged: {
+        if (!popoutOpen)
+            picker.closeDropdownMenu();
+    }
+
+    // a menu still marked open but no longer on screen gets reset, so a click always opens it
+    function toggleMenu() {
+        if (picker.menuOpen && picker.menuVisible) {
+            picker.closeDropdownMenu();
+            return;
+        }
+        if (picker.menuOpen)
+            picker.closeDropdownMenu();
+        picker.showDropdownMenu();
+    }
 
     width: parent?.width ?? 0
     implicitHeight: body.implicitHeight + Theme.spacingS * 2
@@ -43,7 +61,7 @@ DListRow {
             width: parent.width
             height: Theme.buttonHeightXS
 
-            // icon, name and chevron, with a pill state layer, like dux's own menu labels
+            // icon, name and chevron, like dux's own menu labels
             Item {
                 id: trigger
 
@@ -99,13 +117,6 @@ DListRow {
                         }
                     }
                 }
-
-                StateLayer {
-                    cornerRadius: height / 2
-                    tooltipText: row.isInput ? "Input device" : "Output device"
-                    tooltipSide: "top"
-                    onClicked: picker.openDropdownMenu()
-                }
             }
 
             LevelMeter {
@@ -118,14 +129,20 @@ DListRow {
                 active: row.metering
             }
 
-            // menu only; the label above is its trigger
+            // the whole line is the target, not just the label
+            StateLayer {
+                cornerRadius: height / 2
+                onClicked: row.toggleMenu()
+            }
+
+            // menu only; the header line above is its trigger
             DDropdown {
                 id: picker
 
                 showTrigger: false
                 focusPolicy: Qt.NoFocus
                 compactMode: true
-                popupAnchorItem: trigger
+                popupAnchorItem: header
                 popupWidth: header.width
                 transientSurfaceTracker: row.transientSurfaceTracker
                 options: row.devices.map(device => AudioService.displayName(device))
