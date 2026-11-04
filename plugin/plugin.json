@@ -4,9 +4,12 @@
   "version": "0.1.0",
   "author": "Aneesh Bhave",
   "icon": "volume_up",
-  "type": "widget",
-  "component": "./AudigonWidget.qml",
+  "type": "composite",
+  "capabilities": ["dankbar-widget", "daemon"],
+  "components": {
+    "widget": "./AudigonWidget.qml",
+    "daemon": "./AudigonDaemon.qml"
+  },
   "settings": "./AudigonSettings.qml",
-  "capabilities": ["dankbar-widget"],
   "permissions": ["settings_read", "settings_write"]
 }

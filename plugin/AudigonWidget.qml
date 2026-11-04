@@ -50,6 +50,10 @@ PluginComponent {
     // meters only run with the full popout open
     readonly property bool metering: interactionActive && !micPopupMode
 
+    // the mixer's groups, levels and dot live in the daemon, shared by every bar
+    readonly property var daemon: PluginService.pluginDaemonInstances[pluginId] ?? null
+    readonly property bool mixerShown: daemon?.active ?? false
+
     PwObjectTracker {
         objects: Pipewire.nodes.values.filter(node => node.audio)
     }
@@ -84,13 +88,33 @@ PluginComponent {
         source.audio.volume = Math.max(0, Math.min(100, sourceVolume + delta)) / 100;
     }
 
+    // an app's own level; with the mixer on, its real volume is this times its group's factor
     function streamLevel(node) {
+        if (daemon)
+            return daemon.levelOf(node);
         return node?.audio ? Math.round(node.audio.volume * 100) : 0;
     }
 
     function setStreamLevel(node, value) {
-        if (node?.audio)
-            node.audio.volume = Math.max(0, Math.min(maxVolumePercent, value)) / 100;
+        const clamped = Math.max(0, Math.min(maxVolumePercent, value));
+        if (daemon)
+            daemon.setLevel(node, clamped);
+        else if (node?.audio)
+            node.audio.volume = clamped / 100;
+    }
+
+    // {tone, icon, name, factor} for the app row's badge; null when ungrouped
+    function streamGroup(node) {
+        const index = daemon?.groupIndex(node) ?? -1;
+        if (index < 0)
+            return null;
+        const group = daemon.groups[index];
+        return {
+            "tone": index,
+            "icon": group.icon,
+            "name": group.name,
+            "factor": daemon.factors[index] ?? 1
+        };
     }
 
     function adjustStreamVolume(node, delta) {
@@ -335,6 +359,36 @@ PluginComponent {
                 }
 
                 SectionLabel {
+                    text: "Mixer"
+                    visible: root.mixerShown
+                }
+
+                DListRow {
+                    width: parent.width
+                    implicitHeight: mixerPad.implicitHeight + Theme.spacingS * 2
+                    visible: root.mixerShown
+
+                    MixerPad {
+                        id: mixerPad
+
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.leftMargin: Theme.spacingS
+                        anchors.rightMargin: Theme.spacingS
+                        anchors.verticalCenter: parent.verticalCenter
+                        groups: root.daemon?.groups ?? []
+                        factors: root.daemon?.factors ?? []
+                        dot: root.daemon?.dot ?? ({
+                                "x": 0.5,
+                                "y": 0.5
+                            })
+                        onMoved: point => root.daemon?.setDot(point)
+                        onNudged: towardsVertex => root.daemon?.nudgeDot(towardsVertex)
+                        onRecentred: root.daemon?.recentre()
+                    }
+                }
+
+                SectionLabel {
                     text: "Applications"
                 }
 
@@ -372,6 +426,7 @@ PluginComponent {
                                 maxVolume: root.maxVolumePercent
                                 wheelStep: root.volumeScrollStep
                                 metering: root.metering
+                                group: root.streamGroup(modelData)
                                 onLevelSet: value => root.setStreamLevel(modelData, value)
                                 onNudged: delta => root.adjustStreamVolume(modelData, delta)
                                 onResetRequested: root.resetStreamVolume(modelData)

@@ -17,6 +17,8 @@ DListRow {
     property int maxVolume: 100
     property int wheelStep: 2
     property bool metering: false
+    // its mixer group, {tone, icon, name, factor}; null when ungrouped
+    property var group: null
     readonly property bool muted: node?.audio?.muted ?? false
 
     property bool expanded: false
@@ -86,7 +88,7 @@ DListRow {
                 anchors.left: icon.right
                 anchors.leftMargin: Theme.spacingS
                 anchors.verticalCenter: parent.verticalCenter
-                width: Math.min(implicitWidth, header.width - icon.width - meter.width - Theme.spacingS * 2)
+                width: Math.min(implicitWidth, header.width - icon.width - meter.width - Theme.spacingS * 2 - (badge.visible ? badge.width + Theme.spacingS : 0))
                 text: row.name
                 font.pixelSize: Theme.fontSizeSmall
                 font.weight: Theme.fontWeightMedium
@@ -103,6 +105,18 @@ DListRow {
                 anchors.verticalCenter: parent.verticalCenter
                 node: row.node
                 active: row.metering
+            }
+
+            GroupBadge {
+                id: badge
+
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                visible: row.group !== null
+                tone: row.group?.tone ?? 0
+                icon: row.group?.icon ?? ""
+                name: row.group?.name ?? ""
+                factor: row.group?.factor ?? 1
             }
         }
 

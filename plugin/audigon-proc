@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# a stream's pid -> "<steam game id, 0 if none> <pid> <parent> ... <oldest ancestor below pid 1>"
+# bash builtins only, so it runs wherever the shell does
+
+pid=$1
+game=0
+
+if [ -r "/proc/$pid/environ" ]; then
+  while IFS= read -r -d '' var; do
+    case $var in
+    SteamGameId=*)
+      game=${var#*=}
+      break
+      ;;
+    SteamAppId=*) game=${var#*=} ;;
+    esac
+  done <"/proc/$pid/environ"
+fi
+
+chain=$pid
+cur=$pid
+while :; do
+  ppid=0
+  while read -r key value; do
+    if [ "$key" = PPid: ]; then
+      ppid=$value
+      break
+    fi
+  done 2>/dev/null <"/proc/$cur/status"
+  [ "$ppid" -gt 1 ] || break
+  chain="$chain $ppid"
+  cur=$ppid
+done
+
+echo "${game:-0} $chain"

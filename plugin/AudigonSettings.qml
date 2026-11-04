@@ -1,12 +1,85 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import qs.Common
 import qs.Modules.Plugins
+import qs.Services
 import qs.DCommon.Widgets
+import "components"
 
 PluginSettings {
     id: root
 
     pluginId: "audigon"
+
+    // the daemon normalises what's saved, so its defaults show until something is
+    readonly property var daemon: PluginService.pluginDaemonInstances[pluginId] ?? null
+    readonly property int maxGroups: daemon?.maxGroups ?? 2
+    readonly property var roleOptions: ["Game", "Communication", "Music", "Movie", "Notification", "Production", "Accessibility"]
+    property var groups: []
+
+    Component.onCompleted: reloadGroups()
+    onDaemonChanged: reloadGroups()
+    onPluginServiceChanged: reloadGroups()
+
+    function reloadGroups() {
+        groups = daemon ? daemon.normalise(loadValue("groups", null)) : [];
+    }
+
+    function saveGroups(list) {
+        groups = list;
+        saveValue("groups", list);
+    }
+
+    function updateGroup(index, field, value) {
+        if (JSON.stringify(groups[index]?.[field]) === JSON.stringify(value))
+            return;
+        const next = groups.map(group => Object.assign({}, group));
+        next[index][field] = value;
+        saveGroups(next);
+    }
+
+    function moveGroup(index, by) {
+        const to = index + by;
+        if (to < 0 || to >= groups.length)
+            return;
+        const next = groups.slice();
+        const moved = next.splice(index, 1)[0];
+        next.splice(to, 0, moved);
+        saveGroups(next);
+    }
+
+    function removeGroup(index) {
+        if (groups.length > 2)
+            saveGroups(groups.filter((_, i) => i !== index));
+    }
+
+    function addGroup() {
+        if (groups.length >= maxGroups)
+            return;
+        saveGroups(groups.concat([
+            {
+                "name": `Group ${groups.length + 1}`,
+                "icon": "graphic_eq",
+                "apps": "",
+                "appIds": "",
+                "roles": [],
+                "steam": false,
+                "gamemode": false
+            }
+        ]));
+    }
+
+    function validPattern(pattern) {
+        if (!pattern)
+            return true;
+        try {
+            new RegExp(pattern);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
 
     property var themeColorOptions: [
         {
@@ -399,6 +472,196 @@ PluginSettings {
         }
     }
 
+    // ── Mixer ──
+    StyledRect {
+        width: parent.width
+        height: mixerColumn.implicitHeight + Theme.spacingL * 2
+        radius: Theme.cornerRadius
+        color: Theme.surfaceContainerHigh
+
+        Column {
+            id: mixerColumn
+
+            anchors.fill: parent
+            anchors.margins: Theme.spacingL
+            spacing: Theme.spacingM
+
+            StyledText {
+                text: "Mixer"
+                font.pixelSize: Theme.fontSizeMedium
+                font.weight: Font.Medium
+                color: Theme.surfaceText
+            }
+
+            ToggleSetting {
+                settingKey: "mixerEnabled"
+                label: "Mixer"
+                description: "A dot in the popout scales each group of apps; every app keeps its own level"
+                defaultValue: true
+            }
+
+            StyledText {
+                width: parent.width
+                text: "Each group is a vertex. A stream joins the first group it matches; a group with no rules takes the rest. Patterns are case-insensitive regexes."
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.surfaceVariantText
+                wrapMode: Text.WordWrap
+            }
+
+            Repeater {
+                model: root.groups
+
+                StyledRect {
+                    id: groupCard
+
+                    required property var modelData
+                    required property int index
+
+                    width: mixerColumn.width
+                    height: groupColumn.implicitHeight + Theme.spacingM * 2
+                    radius: Theme.cornerRadius
+                    color: Theme.surfaceContainerHighest
+
+                    Column {
+                        id: groupColumn
+
+                        anchors.fill: parent
+                        anchors.margins: Theme.spacingM
+                        spacing: Theme.spacingS
+
+                        Item {
+                            width: parent.width
+                            height: Theme.buttonHeightXS
+
+                            GroupBadge {
+                                anchors.left: parent.left
+                                anchors.verticalCenter: parent.verticalCenter
+                                tone: groupCard.index
+                                icon: groupCard.modelData.icon
+                                name: groupCard.modelData.name || `Group ${groupCard.index + 1}`
+                                showFactor: false
+                            }
+
+                            Row {
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+
+                                DActionButton {
+                                    buttonSize: Theme.buttonHeightXS
+                                    iconName: "arrow_upward"
+                                    iconSize: Theme.iconSizeMedium
+                                    enabled: groupCard.index > 0
+                                    tooltipText: "Move up"
+                                    onClicked: root.moveGroup(groupCard.index, -1)
+                                }
+
+                                DActionButton {
+                                    buttonSize: Theme.buttonHeightXS
+                                    iconName: "arrow_downward"
+                                    iconSize: Theme.iconSizeMedium
+                                    enabled: groupCard.index < root.groups.length - 1
+                                    tooltipText: "Move down"
+                                    onClicked: root.moveGroup(groupCard.index, 1)
+                                }
+
+                                DActionButton {
+                                    buttonSize: Theme.buttonHeightXS
+                                    iconName: "delete"
+                                    iconSize: Theme.iconSizeMedium
+                                    enabled: root.groups.length > 2
+                                    tooltipText: "Remove"
+                                    onClicked: root.removeGroup(groupCard.index)
+                                }
+                            }
+                        }
+
+                        Row {
+                            width: parent.width
+                            spacing: Theme.spacingS
+
+                            DTextField {
+                                width: parent.width - iconPicker.width - parent.spacing
+                                placeholderText: "Name"
+                                text: groupCard.modelData.name
+                                onEditingFinished: root.updateGroup(groupCard.index, "name", text)
+                            }
+
+                            DIconPicker {
+                                id: iconPicker
+
+                                currentIcon: groupCard.modelData.icon
+                                onIconSelected: iconName => root.updateGroup(groupCard.index, "icon", iconName)
+                            }
+                        }
+
+                        DTextField {
+                            width: parent.width
+                            placeholderText: "App names or binaries"
+                            text: groupCard.modelData.apps
+                            isError: !root.validPattern(text)
+                            supportingText: isError ? "Not a valid regex" : ""
+                            onEditingFinished: root.updateGroup(groupCard.index, "apps", text)
+                        }
+
+                        DTextField {
+                            width: parent.width
+                            placeholderText: "Window app ids"
+                            text: groupCard.modelData.appIds
+                            isError: !root.validPattern(text)
+                            supportingText: isError ? "Not a valid regex" : ""
+                            onEditingFinished: root.updateGroup(groupCard.index, "appIds", text)
+                        }
+
+                        StyledText {
+                            text: "Media roles"
+                            font.pixelSize: Theme.fontSizeSmall
+                            color: Theme.surfaceVariantText
+                        }
+
+                        DFilterChips {
+                            width: parent.width
+                            model: root.roleOptions
+                            multiSelect: true
+                            showCounts: false
+                            selectedValues: groupCard.modelData.roles
+                            onSelectionToggled: (chip, selected) => {
+                                const role = root.roleOptions[chip];
+                                const roles = groupCard.modelData.roles.filter(r => r !== role);
+                                if (selected)
+                                    roles.push(role);
+                                root.updateGroup(groupCard.index, "roles", roles);
+                            }
+                        }
+
+                        DToggle {
+                            width: parent.width
+                            text: "Steam games"
+                            description: "Anything Steam launched, native or Proton"
+                            checked: groupCard.modelData.steam
+                            onToggled: checked => root.updateGroup(groupCard.index, "steam", checked)
+                        }
+
+                        DToggle {
+                            width: parent.width
+                            text: "gamemode games"
+                            description: "Processes registered with gamemoded"
+                            checked: groupCard.modelData.gamemode
+                            onToggled: checked => root.updateGroup(groupCard.index, "gamemode", checked)
+                        }
+                    }
+                }
+            }
+
+            DButton {
+                visible: root.maxGroups > 2
+                enabled: root.groups.length < root.maxGroups
+                text: "Add group"
+                iconName: "add"
+                onClicked: root.addGroup()
+            }
+        }
+    }
+
     // ── Info ──
     StyledRect {
         width: parent.width
@@ -433,7 +696,7 @@ PluginSettings {
             }
 
             StyledText {
-                text: "• Scroll on the widget to change volume (input / output)\n• Click the widget to open the audio panel\n• Pick devices and set their volumes under Input/Output\n• Set per-app volumes under Applications"
+                text: "• Scroll on the widget to change volume (input / output)\n• Click the widget to open the audio panel\n• Pick devices and set their volumes under Input/Output\n• Set per-app volumes under Applications\n• Drag the mixer's dot to balance its groups; scroll to nudge it, double-click to recentre"
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.surfaceVariantText
                 wrapMode: Text.WordWrap
