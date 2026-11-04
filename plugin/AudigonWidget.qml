@@ -36,14 +36,16 @@ PluginComponent {
     readonly property bool sourceMuted: source?.audio ? source.audio.muted : false
     readonly property int sinkMaxVolume: Math.min(maxVolumePercent, AudioService.getMaxVolumePercent(sink))
 
-    // dux's device lists, minus those hidden in its audio settings; the default always stays
+    // devices as dux lists them, minus those hidden in its audio settings; the default always stays.
+    // read off pipewire: AudioService.typedSinks only refreshes while something holds a ref on it,
+    // so right after dux starts it can still be empty
     readonly property var sinks: {
         const hidden = SessionData.hiddenOutputDeviceNames ?? [];
-        return AudioService.typedSinks.filter(node => node === sink || !hidden.includes(node.name));
+        return Pipewire.nodes.values.filter(node => node.audio && node.isSink && (SettingsData.audioShowStreamDevices || !node.isStream) && (node === sink || !hidden.includes(node.name)));
     }
     readonly property var sources: {
         const hidden = SessionData.hiddenInputDeviceNames ?? [];
-        return AudioService.typedSources.filter(node => node === source || !hidden.includes(node.name));
+        return Pipewire.nodes.values.filter(node => node.audio && !node.isSink && (SettingsData.audioShowStreamDevices || !node.isStream) && (node === source || !hidden.includes(node.name)));
     }
 
     readonly property var streams: Pipewire.nodes.values.filter(node => node.audio && node.isStream && node.isSink)
