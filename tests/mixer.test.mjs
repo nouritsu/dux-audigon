@@ -23,6 +23,8 @@ const near = (actual, expected, what) => {
 
 for (let n = 3; n <= 8; n++) {
     const v = Mixer.vertices(n);
+    // pointing down: the first vertex at the bottom middle
+    near([v[0].x, v[0].y], [0.5, 1], `${n}-gon first vertex at the bottom`);
     near(Mixer.factors(v, Mixer.centre()), new Array(n).fill(1), `${n}-gon centre`);
     for (let i = 0; i < n; i++) {
         const solo = new Array(n).fill(0);

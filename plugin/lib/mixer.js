@@ -1,7 +1,7 @@
 .pragma library
 
 // The mixer's geometry, in a unit square with y down. Two groups sit at the ends of a horizontal
-// line; three or more on a regular polygon, the first at the top, then clockwise.
+// line; three or more on a regular polygon pointing down, the first at the bottom, then clockwise.
 
 const EPS = 1e-9;
 
@@ -12,7 +12,7 @@ function vertices(n) {
         return [{"x": 0, "y": 0.5}, {"x": 1, "y": 0.5}];
     const out = [];
     for (let i = 0; i < n; i++) {
-        const a = -Math.PI / 2 + 2 * Math.PI * i / n;
+        const a = Math.PI / 2 + 2 * Math.PI * i / n;
         out.push({"x": 0.5 + 0.5 * Math.cos(a), "y": 0.5 + 0.5 * Math.sin(a)});
     }
     return out;
