@@ -13,6 +13,7 @@ DListRow {
     property var devices: []
     property bool isInput: false
     property int maxVolume: 100
+    property bool metering: false
 
     readonly property var audio: node?.audio ?? null
     readonly property int level: audio ? Math.round(audio.volume * 100) : 0
@@ -44,7 +45,7 @@ DListRow {
 
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
-                dropdownWidth: header.width
+                dropdownWidth: header.width - meter.width - Theme.spacingS * 2
                 compactMode: true
                 options: row.devices.map(device => AudioService.displayName(device))
                 optionValues: row.devices.map(device => device.name)
@@ -56,6 +57,16 @@ DListRow {
                     if (device)
                         row.picked(device);
                 }
+            }
+
+            LevelMeter {
+                id: meter
+
+                anchors.right: parent.right
+                anchors.rightMargin: Theme.spacingXS
+                anchors.verticalCenter: parent.verticalCenter
+                node: row.node
+                active: row.metering
             }
         }
 

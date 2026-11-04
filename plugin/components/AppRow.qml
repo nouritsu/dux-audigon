@@ -16,6 +16,7 @@ DListRow {
     property int level: 0
     property int maxVolume: 100
     property int wheelStep: 2
+    property bool metering: false
     readonly property bool muted: node?.audio?.muted ?? false
 
     property bool expanded: false
@@ -85,13 +86,23 @@ DListRow {
                 anchors.left: icon.right
                 anchors.leftMargin: Theme.spacingS
                 anchors.verticalCenter: parent.verticalCenter
-                width: Math.min(implicitWidth, header.width - icon.width - Theme.spacingS)
+                width: Math.min(implicitWidth, header.width - icon.width - meter.width - Theme.spacingS * 2)
                 text: row.name
                 font.pixelSize: Theme.fontSizeSmall
                 font.weight: Theme.fontWeightMedium
                 color: Theme.surfaceText
                 wrapMode: Text.NoWrap
                 elide: Text.ElideRight
+            }
+
+            LevelMeter {
+                id: meter
+
+                anchors.left: nameText.right
+                anchors.leftMargin: Theme.spacingS
+                anchors.verticalCenter: parent.verticalCenter
+                node: row.node
+                active: row.metering
             }
         }
 

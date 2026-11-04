@@ -47,6 +47,9 @@ PluginComponent {
 
     readonly property var streams: Pipewire.nodes.values.filter(node => node.audio && node.isStream && node.isSink)
 
+    // meters only run with the full popout open
+    readonly property bool metering: interactionActive && !micPopupMode
+
     PwObjectTracker {
         objects: Pipewire.nodes.values.filter(node => node.audio)
     }
@@ -315,6 +318,7 @@ PluginComponent {
                     node: root.sink
                     devices: root.sinks
                     maxVolume: root.sinkMaxVolume
+                    metering: root.metering
                     firstInGroup: true
                     lastInGroup: false
                     onPicked: device => AudioService.setSink(device)
@@ -324,6 +328,7 @@ PluginComponent {
                     node: root.source
                     devices: root.sources
                     isInput: true
+                    metering: root.metering
                     firstInGroup: false
                     lastInGroup: true
                     onPicked: device => AudioService.setSource(device)
@@ -366,6 +371,7 @@ PluginComponent {
                                 level: root.streamLevel(modelData)
                                 maxVolume: root.maxVolumePercent
                                 wheelStep: root.volumeScrollStep
+                                metering: root.metering
                                 onLevelSet: value => root.setStreamLevel(modelData, value)
                                 onNudged: delta => root.adjustStreamVolume(modelData, delta)
                                 onResetRequested: root.resetStreamVolume(modelData)
