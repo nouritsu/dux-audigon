@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import Quickshell
 import Quickshell.Services.Pipewire
 import qs.Common
 import qs.Modules.Plugins
@@ -408,8 +409,11 @@ PluginComponent {
                         width: appScroll.width
                         spacing: Theme.groupedListGap
 
+                        // diffed, so rows and their meters survive node churn, like the meters' own capture streams
                         Repeater {
-                            model: root.streams
+                            model: ScriptModel {
+                                values: root.streams
+                            }
 
                             AppRow {
                                 required property var modelData
