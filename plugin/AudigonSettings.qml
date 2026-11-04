@@ -1,10 +1,7 @@
 import QtQuick
-import QtQuick.Controls
-import Quickshell.Services.Pipewire
 import qs.Common
 import qs.Modules.Plugins
-import qs.Services
-import qs.Widgets
+import qs.DCommon.Widgets
 
 PluginSettings {
     id: root
@@ -190,77 +187,6 @@ PluginSettings {
                 options: root.themeColorOptions
                 defaultValue: "surfaceText"
             }
-
-            ToggleSetting {
-                id: customTabRadiusToggle
-                settingKey: "useCustomTabRadius"
-                label: "Custom Tab Radius"
-                description: "Override the theme's tab radius"
-                defaultValue: false
-            }
-
-            Timer {
-                id: tabRadiusDebounce
-                interval: 300
-                repeat: false
-                onTriggered: {
-                    saveValue("tabRadius", Math.round(tabRadiusSlider.value));
-                }
-            }
-
-            Column {
-                width: parent.width
-                spacing: 2
-                visible: customTabRadiusToggle.value
-
-                Row {
-                    width: parent.width
-                    height: 24
-                    spacing: Theme.spacingM
-
-                    StyledText {
-                        text: "Tab Radius"
-                        font.pixelSize: Theme.fontSizeSmall
-                        width: 180
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-
-                    DankSlider {
-                        id: tabRadiusSlider
-                        width: parent.width - 180 - Theme.spacingM - tabRadiusValue.width - Theme.spacingM
-                        minimum: 0
-                        maximum: 40
-                        showValue: false
-                        anchors.verticalCenter: parent.verticalCenter
-
-                        Binding {
-                            target: tabRadiusSlider
-                            property: "value"
-                            value: loadValue("tabRadius", Theme.cornerRadius)
-                        }
-
-                        onSliderValueChanged: newValue => {
-                            tabRadiusDebounce.restart();
-                        }
-                    }
-
-                    StyledText {
-                        id: tabRadiusValue
-                        text: Math.round(tabRadiusSlider.value) + "px"
-                        font.pixelSize: Theme.fontSizeSmall
-                        width: 50
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-
-                StyledText {
-                    text: "Corner radius for the Volumes/Devices tabs"
-                    font.pixelSize: Theme.fontSizeSmall * 0.9
-                    opacity: 0.5
-                    width: parent.width
-                    wrapMode: Text.Wrap
-                }
-            }
         }
     }
 
@@ -290,7 +216,7 @@ PluginSettings {
                 interval: 300
                 repeat: false
                 onTriggered: {
-                    saveValue("volumeScrollStep", Math.round(speakerStepSlider.value));
+                    root.saveValue("volumeScrollStep", Math.round(speakerStepSlider.value));
                 }
             }
 
@@ -310,7 +236,7 @@ PluginSettings {
                         anchors.verticalCenter: parent.verticalCenter
                     }
 
-                    DankSlider {
+                    DSlider {
                         id: speakerStepSlider
                         width: parent.width - 180 - Theme.spacingM - speakerStepValue.width - Theme.spacingM
                         minimum: 1
@@ -321,7 +247,7 @@ PluginSettings {
                         Binding {
                             target: speakerStepSlider
                             property: "value"
-                            value: loadValue("volumeScrollStep", 2)
+                            value: root.loadValue("volumeScrollStep", 2)
                         }
 
                         onSliderValueChanged: newValue => {
@@ -352,7 +278,7 @@ PluginSettings {
                 interval: 300
                 repeat: false
                 onTriggered: {
-                    saveValue("micVolumeScrollStep", Math.round(micStepSlider.value));
+                    root.saveValue("micVolumeScrollStep", Math.round(micStepSlider.value));
                 }
             }
 
@@ -372,7 +298,7 @@ PluginSettings {
                         anchors.verticalCenter: parent.verticalCenter
                     }
 
-                    DankSlider {
+                    DSlider {
                         id: micStepSlider
                         width: parent.width - 180 - Theme.spacingM - micStepValue.width - Theme.spacingM
                         minimum: 1
@@ -383,7 +309,7 @@ PluginSettings {
                         Binding {
                             target: micStepSlider
                             property: "value"
-                            value: loadValue("micVolumeScrollStep", 2)
+                            value: root.loadValue("micVolumeScrollStep", 2)
                         }
 
                         onSliderValueChanged: newValue => {
@@ -414,7 +340,7 @@ PluginSettings {
                 interval: 300
                 repeat: false
                 onTriggered: {
-                    saveValue("maxVolumePercent", Math.round(maxVolumeSlider.value));
+                    root.saveValue("maxVolumePercent", Math.round(maxVolumeSlider.value));
                 }
             }
 
@@ -434,7 +360,7 @@ PluginSettings {
                         anchors.verticalCenter: parent.verticalCenter
                     }
 
-                    DankSlider {
+                    DSlider {
                         id: maxVolumeSlider
                         width: parent.width - 180 - Theme.spacingM - maxVolumeValue.width - Theme.spacingM
                         minimum: 100
@@ -445,7 +371,7 @@ PluginSettings {
                         Binding {
                             target: maxVolumeSlider
                             property: "value"
-                            value: loadValue("maxVolumePercent", 100)
+                            value: root.loadValue("maxVolumePercent", 100)
                         }
 
                         onSliderValueChanged: newValue => {
@@ -490,7 +416,7 @@ PluginSettings {
             Row {
                 spacing: Theme.spacingM
 
-                DankIcon {
+                DIcon {
                     name: "info"
                     size: Theme.iconSize
                     color: Theme.primary
@@ -507,7 +433,7 @@ PluginSettings {
             }
 
             StyledText {
-                text: "• Scroll on the widget to change volume (input / output)\n• Click the widget to open the audio panel\n• Use the Volumes tab to adjust output, input, and per-app volumes\n• Use the Devices tab to switch audio devices."
+                text: "• Scroll on the widget to change volume (input / output)\n• Click the widget to open the audio panel\n• Pick devices and set their volumes under Input/Output\n• Set per-app volumes under Applications"
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.surfaceVariantText
                 wrapMode: Text.WordWrap
