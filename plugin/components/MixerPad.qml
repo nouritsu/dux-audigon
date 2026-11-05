@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Shapes
+import Quickshell
 import qs.Common
 import qs.DCommon.Widgets
 import "../lib/mixer.js" as Mixer
