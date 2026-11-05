@@ -11,7 +11,7 @@ import qs.DCommon.Widgets
 Controls.Popup {
     id: menu
 
-    // {icon, text, action}
+    // {icon, text, action, tone}; tone "error" or "success" colours it like dux's own
     property var entries: []
     readonly property real rowHeight: DCommon.Style.menuRowHeight
     readonly property real iconSize: DCommon.Style.menuItemIconSize
@@ -54,11 +54,13 @@ Controls.Popup {
                 id: row
 
                 required property var modelData
+                readonly property string tone: modelData.tone ?? ""
+                readonly property color contentColor: tone === "error" ? Theme.error : tone === "success" ? Theme.success : Theme.onSurface
 
                 width: Math.max(Theme.fieldDefaultWidth * 0.6, content.implicitWidth + Theme.spacingS * 2)
                 height: menu.rowHeight
                 radius: Theme.cornerRadiusS
-                color: hit.pressed ? Theme.withAlpha(Theme.onSurface, Theme.stateLayerPressed) : hit.containsMouse ? Theme.withAlpha(Theme.onSurface, Theme.stateLayerHover) : "transparent"
+                color: hit.pressed ? Theme.withAlpha(contentColor, Theme.stateLayerPressed) : hit.containsMouse ? Theme.withAlpha(contentColor, Theme.stateLayerHover) : "transparent"
 
                 Row {
                     id: content
@@ -72,14 +74,14 @@ Controls.Popup {
                         anchors.verticalCenter: parent.verticalCenter
                         name: row.modelData.icon ?? ""
                         size: menu.iconSize
-                        color: Theme.onSurface
+                        color: row.contentColor
                     }
 
                     StyledText {
                         anchors.verticalCenter: parent.verticalCenter
                         text: row.modelData.text ?? ""
                         font.pixelSize: Theme.fontSizeSmall
-                        color: Theme.onSurface
+                        color: row.contentColor
                     }
                 }
 

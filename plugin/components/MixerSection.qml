@@ -26,7 +26,8 @@ Column {
             {
                 "icon": muted ? "volume_up" : "volume_off",
                 "text": muted ? "Unmute" : "Mute",
-                "action": () => section.daemon.toggleGroupMute(index)
+                "action": () => section.daemon.toggleGroupMute(index),
+                "tone": muted ? "success" : "error"
             },
             {
                 "icon": excluded ? "add_circle" : "do_not_disturb_on",
@@ -41,7 +42,8 @@ Column {
             {
                 "icon": "power_settings_new",
                 "text": section.bypassed ? "Enable" : "Disable",
-                "action": () => section.daemon.toggleBypass()
+                "action": () => section.daemon.toggleBypass(),
+                "tone": section.bypassed ? "success" : "error"
             }
         ];
     }
