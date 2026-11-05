@@ -1,9 +1,8 @@
-// node tests/mixer.test.mjs: the mixer geometry, loaded the way QML would
-import {readFileSync} from "node:fs";
+// node tests/mixer.test.mjs: the mixer geometry
 import assert from "node:assert/strict";
+import {load} from "./load.mjs";
 
-const source = readFileSync(new URL("../plugin/lib/mixer.js", import.meta.url), "utf8").replace(/^\.pragma library$/m, "");
-const Mixer = new Function(`${source}; return {vertices, clamp, sector, factors, centre, nudge, inside, clampTo, closestInTriangle, fit, transition, shape};`)();
+const Mixer = load("mixer");
 
 const near = (actual, expected, what, tolerance = 1e-6) => {
     assert.equal(actual.length, expected.length, what);

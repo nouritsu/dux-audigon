@@ -18,11 +18,13 @@
 
     checks = forAllSystems (pkgs: {
       package = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
-      mixer = pkgs.runCommand "audigon-mixer-test" {nativeBuildInputs = [pkgs.nodejs];} ''
-        mkdir -p plugin/lib tests
-        cp ${./plugin/lib/mixer.js} plugin/lib/mixer.js
-        cp ${./tests/mixer.test.mjs} tests/mixer.test.mjs
-        node tests/mixer.test.mjs
+      lib = pkgs.runCommand "audigon-lib-tests" {nativeBuildInputs = [pkgs.nodejs];} ''
+        mkdir plugin
+        cp -r ${./plugin/lib} plugin/lib
+        cp -r ${./tests} tests
+        for test in tests/*.test.mjs; do
+          node "$test"
+        done
         touch $out
       '';
     });
