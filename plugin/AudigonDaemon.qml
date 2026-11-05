@@ -104,6 +104,8 @@ PluginComponent {
     property var _written: ({})
     // our own writes echo back a moment later; changes inside this window aren't someone else's
     readonly property int settleMs: 500
+    // for busctl and the helper; their callbacks are dropped once the daemon is gone
+    readonly property int commandTimeout: 5000
 
     readonly property var streams: Pipewire.nodes.values.filter(node => node?.audio && node.isStream && node.isSink)
     readonly property var windows: CompositorService.isNiri ? NiriService.windows : []
@@ -390,7 +392,7 @@ PluginComponent {
                 const next = Object.assign({}, root._playerPids);
                 next[name] = exitCode === 0 ? parseInt(output.trim().split(" ")[1]) || -1 : -1;
                 root._playerPids = next;
-            }, 0);
+            }, 0, root.commandTimeout, root);
         }
     }
 
@@ -487,7 +489,7 @@ PluginComponent {
                     "chain": fields.slice(1)
                 } : null;
                 root.procs = next;
-            }, 0);
+            }, 0, root.commandTimeout, root);
         }
     }
 
@@ -526,7 +528,7 @@ PluginComponent {
                 }
             }
             root.gamePids = pids;
-        }, 100);
+        }, 100, root.commandTimeout, root);
     }
 
     onStreamsChanged: {
