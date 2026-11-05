@@ -26,6 +26,14 @@ Rectangle {
     implicitHeight: Theme.iconSizeSmall + Theme.spacingXS * 2
     radius: height / 2
     color: dimmed ? Theme.surfaceContainerHighest : style.container ?? Theme.primaryContainer
+    // fades with its factor, like the group's marker on the mixer
+    opacity: dimmed ? 1 : 0.45 + 0.55 * Math.max(0, Math.min(1, factor))
+
+    Behavior on opacity {
+        NumberAnimation {
+            duration: Theme.shorterDuration
+        }
+    }
 
     Row {
         id: content
