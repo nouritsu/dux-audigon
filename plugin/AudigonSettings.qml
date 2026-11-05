@@ -6,29 +6,29 @@ import qs.Modules.Plugins
 import qs.Services
 import qs.DCommon.Widgets
 import "components"
+import "lib/groups.js" as Groups
 
 PluginSettings {
     id: root
 
     pluginId: "audigon"
 
-    // the daemon normalises what's saved, so its defaults show until something is
+    // for the groups' colours
     readonly property var daemon: PluginService.pluginDaemonInstances[pluginId] ?? null
-    readonly property int maxGroups: daemon?.maxGroups ?? 8
     readonly property var roleOptions: ["Game", "Communication", "Music", "Movie", "Notification", "Production", "Accessibility"]
+    // as the daemon reads them, defaults until something is saved
     property var groups: []
 
     Component.onCompleted: reloadGroups()
-    onDaemonChanged: reloadGroups()
     onPluginServiceChanged: reloadGroups()
 
     function reloadGroups() {
-        groups = daemon ? daemon.normalise(loadValue("groups", null)) : [];
+        groups = Groups.normalise(loadValue("groups", null));
     }
 
     function saveGroups(list) {
-        groups = list;
-        saveValue("groups", list);
+        groups = Groups.normalise(list);
+        saveValue("groups", groups);
     }
 
     function updateGroup(index, field, value) {
@@ -55,21 +55,8 @@ PluginSettings {
     }
 
     function addGroup() {
-        if (groups.length >= maxGroups)
-            return;
-        saveGroups(groups.concat([
-            {
-                "name": `Group ${groups.length + 1}`,
-                "icon": "graphic_eq",
-                "apps": "",
-                "appIds": "",
-                "roles": [],
-                "steam": false,
-                "gamemode": false,
-                "mpris": false,
-                "color": ""
-            }
-        ]));
+        if (groups.length < Groups.maxGroups())
+            saveGroups(groups.concat({}));
     }
 
     function validPattern(pattern) {
@@ -520,14 +507,18 @@ PluginSettings {
                 wrapMode: Text.WordWrap
             }
 
+            // by count, so an edit updates the cards in place instead of rebuilding them, which
+            // would drop the focus from the next field
             Repeater {
-                model: root.groups
+                model: root.groups.length
 
                 StyledRect {
                     id: groupCard
 
-                    required property var modelData
                     required property int index
+                    // clamped, as a removed card can update once more before it goes
+                    readonly property var group: root.groups[Math.min(index, root.groups.length - 1)]
+                    readonly property var style: root.daemon?.styleFor(group.color, index) ?? ({})
 
                     width: mixerColumn.width
                     height: groupColumn.implicitHeight + Theme.spacingM * 2
@@ -548,9 +539,9 @@ PluginSettings {
                             GroupBadge {
                                 anchors.left: parent.left
                                 anchors.verticalCenter: parent.verticalCenter
-                                style: root.daemon?.styleFor(groupCard.modelData.color, groupCard.index) ?? ({})
-                                icon: groupCard.modelData.icon
-                                name: groupCard.modelData.name || `Group ${groupCard.index + 1}`
+                                style: groupCard.style
+                                icon: groupCard.group.icon
+                                name: groupCard.group.name
                                 showFactor: false
                             }
 
@@ -594,14 +585,14 @@ PluginSettings {
                             DTextField {
                                 width: parent.width - iconPicker.width - parent.spacing
                                 placeholderText: "Name"
-                                text: groupCard.modelData.name
+                                text: groupCard.group.name
                                 onEditingFinished: root.updateGroup(groupCard.index, "name", text)
                             }
 
                             DIconPicker {
                                 id: iconPicker
 
-                                currentIcon: groupCard.modelData.icon
+                                currentIcon: groupCard.group.icon
                                 onIconSelected: iconName => root.updateGroup(groupCard.index, "icon", iconName)
                             }
                         }
@@ -609,7 +600,7 @@ PluginSettings {
                         DTextField {
                             width: parent.width
                             placeholderText: "App names or binaries"
-                            text: groupCard.modelData.apps
+                            text: groupCard.group.apps
                             isError: !root.validPattern(text)
                             supportingText: isError ? "Not a valid regex" : ""
                             onEditingFinished: root.updateGroup(groupCard.index, "apps", text)
@@ -618,7 +609,7 @@ PluginSettings {
                         DTextField {
                             width: parent.width
                             placeholderText: "Window app ids"
-                            text: groupCard.modelData.appIds
+                            text: groupCard.group.appIds
                             isError: !root.validPattern(text)
                             supportingText: isError ? "Not a valid regex" : ""
                             onEditingFinished: root.updateGroup(groupCard.index, "appIds", text)
@@ -635,10 +626,10 @@ PluginSettings {
                             model: root.roleOptions
                             multiSelect: true
                             showCounts: false
-                            selectedValues: groupCard.modelData.roles
+                            selectedValues: groupCard.group.roles
                             onSelectionToggled: (chip, selected) => {
                                 const role = root.roleOptions[chip];
-                                const roles = groupCard.modelData.roles.filter(r => r !== role);
+                                const roles = groupCard.group.roles.filter(r => r !== role);
                                 if (selected)
                                     roles.push(role);
                                 root.updateGroup(groupCard.index, "roles", roles);
@@ -649,7 +640,7 @@ PluginSettings {
                             width: parent.width
                             text: "Steam games"
                             description: "Anything Steam launched, native or Proton"
-                            checked: groupCard.modelData.steam
+                            checked: groupCard.group.steam
                             onToggled: checked => root.updateGroup(groupCard.index, "steam", checked)
                         }
 
@@ -657,7 +648,7 @@ PluginSettings {
                             width: parent.width
                             text: "gamemode games"
                             description: "Processes registered with gamemoded"
-                            checked: groupCard.modelData.gamemode
+                            checked: groupCard.group.gamemode
                             onToggled: checked => root.updateGroup(groupCard.index, "gamemode", checked)
                         }
 
@@ -665,14 +656,12 @@ PluginSettings {
                             width: parent.width
                             text: "Playing media"
                             description: "Apps with a media player open, playing or paused, like a browser with a video"
-                            checked: groupCard.modelData.mpris
+                            checked: groupCard.group.mpris
                             onToggled: checked => root.updateGroup(groupCard.index, "mpris", checked)
                         }
 
                         // the theme's tone for its place, or a colour of its own
                         Item {
-                            id: colourRow
-                            readonly property var style: root.daemon?.styleFor(groupCard.modelData.color, groupCard.index) ?? ({})
 
                             width: parent.width
                             height: Theme.buttonHeightXS
@@ -680,7 +669,7 @@ PluginSettings {
                             StyledText {
                                 anchors.left: parent.left
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: groupCard.modelData.color ? "Colour" : "Colour: theme"
+                                text: groupCard.group.color ? "Colour" : "Colour: theme"
                                 font.pixelSize: Theme.fontSizeSmall
                                 color: Theme.surfaceVariantText
                             }
@@ -695,7 +684,7 @@ PluginSettings {
                                     width: Theme.iconSizeMedium
                                     height: width
                                     radius: width / 2
-                                    color: colourRow.style.accent ?? Theme.primary
+                                    color: groupCard.style.accent ?? Theme.primary
                                     border.width: 1
                                     border.color: Theme.outlineVariant
                                 }
@@ -709,8 +698,8 @@ PluginSettings {
                                         const picker = PopoutService.colorPickerModal;
                                         if (!picker)
                                             return;
-                                        picker.selectedColor = colourRow.style.accent ?? Theme.primary;
-                                        picker.pickerTitle = `${groupCard.modelData.name || "Group"} colour`;
+                                        picker.selectedColor = groupCard.style.accent ?? Theme.primary;
+                                        picker.pickerTitle = `${groupCard.group.name} colour`;
                                         picker.onColorSelectedCallback = picked => root.updateGroup(groupCard.index, "color", picked.toString());
                                         picker.show();
                                     }
@@ -721,7 +710,7 @@ PluginSettings {
                                     iconName: "format_color_reset"
                                     iconSize: Theme.iconSizeMedium
                                     tooltipText: "Theme colour"
-                                    visible: groupCard.modelData.color !== ""
+                                    visible: groupCard.group.color !== ""
                                     onClicked: root.updateGroup(groupCard.index, "color", "")
                                 }
                             }
@@ -731,8 +720,7 @@ PluginSettings {
             }
 
             DButton {
-                visible: root.maxGroups > 2
-                enabled: root.groups.length < root.maxGroups
+                enabled: root.groups.length < Groups.maxGroups()
                 text: "Add group"
                 iconName: "add"
                 onClicked: root.addGroup()

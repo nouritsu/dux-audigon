@@ -7,6 +7,7 @@ import Quickshell.Services.Pipewire
 import qs.Common
 import qs.Modules.Plugins
 import qs.Services
+import "lib/groups.js" as Groups
 import "lib/mixer.js" as Mixer
 
 // the mixer: sorts playback streams into groups and scales each by its group's factor; an app's own
@@ -15,41 +16,8 @@ import "lib/mixer.js" as Mixer
 PluginComponent {
     id: root
 
-    // a group with no rules takes whatever nothing else matched
-    readonly property var defaultGroups: [
-        {
-            "name": "Game",
-            "icon": "sports_esports",
-            "roles": ["Game"],
-            "steam": true,
-            "gamemode": true
-        },
-        {
-            "name": "Voice Chat",
-            "icon": "headset_mic",
-            "apps": root.chatApps,
-            "appIds": root.chatApps,
-            "roles": ["Communication"]
-        },
-        {
-            "name": "Media",
-            "icon": "music_note",
-            "apps": root.mediaApps,
-            "appIds": root.mediaApps,
-            "roles": ["Music", "Movie"],
-            "mpris": true
-        },
-        {
-            "name": "Etc",
-            "icon": "graphic_eq"
-        }
-    ]
-    readonly property string chatApps: "vesktop|discord|webcord|legcord|teams|zoom|skype|mumble|teamspeak|signal|element"
-    readonly property string mediaApps: "spotify|ncspot|spotube|mpv|celluloid|haruna|vlc|totem|showtime|clapper|jellyfin|feishin|supersonic|sonixd|elisa|amberol|rhythmbox|lollypop|strawberry|clementine|audacious|deadbeef|cmus|quodlibet|tauon|youtube-music|tidal-hifi|plex|kodi|stremio|freetube"
-    readonly property int maxGroups: 8
-
     readonly property bool mixerEnabled: pluginData.mixerEnabled ?? true
-    readonly property var groups: normalise(pluginData.groups)
+    readonly property var groups: Groups.normalise(pluginData.groups)
     readonly property bool active: mixerEnabled && groups.length >= 2
     readonly property real maxLevel: Math.max(1, (pluginData.maxVolumePercent || 100) / 100)
 
@@ -169,21 +137,6 @@ PluginComponent {
 
     PwObjectTracker {
         objects: root.streams
-    }
-
-    function normalise(list) {
-        const source = Array.isArray(list) && list.length >= 2 ? list : defaultGroups;
-        return source.slice(0, maxGroups).map(group => ({
-                    "name": String(group?.name ?? ""),
-                    "icon": String(group?.icon || "graphic_eq"),
-                    "color": /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(group?.color ?? "") ? group.color : "",
-                    "apps": String(group?.apps ?? ""),
-                    "appIds": String(group?.appIds ?? ""),
-                    "roles": Array.isArray(group?.roles) ? group.roles.map(String) : [],
-                    "steam": !!group?.steam,
-                    "gamemode": !!group?.gamemode,
-                    "mpris": !!group?.mpris
-                }));
     }
 
     // a factor from the shape, as the streams get it
