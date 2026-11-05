@@ -446,19 +446,38 @@ Item {
                 paths: lines.spokes.filter(s => s.open && s.alone).map(s => s.path)
             }
         }
+
+        // the spoke the dragged dot is stuck to
+        ShapePath {
+            fillColor: "transparent"
+            strokeColor: Theme.withAlpha(Theme.primary, 0.45 * pad.polyAlpha)
+            strokeWidth: 2
+            capStyle: ShapePath.RoundCap
+
+            PathMultiline {
+                paths: drag.pressed && drag.stuck >= 0 && lines.spokes[drag.stuck] ? [lines.spokes[drag.stuck].path] : []
+            }
+        }
     }
 
-    // the centre, where all are full
+    // the centre, where all are full; lit while the dragged dot is stuck to it
     Rectangle {
         readonly property point centre: pad.at(Mixer.centre())
+        readonly property bool lit: drag.pressed && drag.stuck === -1
 
         x: centre.x - width / 2
         y: centre.y - height / 2
-        width: Theme.spacingXS
+        width: lit ? Theme.spacingS : Theme.spacingXS
         height: width
         radius: width / 2
-        color: Theme.outlineVariant
+        color: lit ? Theme.primary : Theme.outlineVariant
         opacity: pad.dotAlpha
+
+        Behavior on width {
+            NumberAnimation {
+                duration: Theme.shorterDuration
+            }
+        }
     }
 
     Repeater {
@@ -602,6 +621,54 @@ Item {
 
         // when a left click last turned the mixer back on
         property double enabledAt: 0
+        // what the dot is stuck to while dragged: -1 the centre, a spoke by its index in keys, else -2;
+        // it takes a little more pull to come off than to stick
+        property int stuck: -2
+        readonly property real centreSnap: pad.markerSize * 0.4
+        readonly property real spokeSnap: pad.markerSize * 0.25
+        readonly property real release: 1.6
+
+        function nearestOn(x, y, a, b) {
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const len = dx * dx + dy * dy;
+            const t = len < 1e-6 ? 0 : Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / len));
+            return Qt.point(a.x + t * dx, a.y + t * dy);
+        }
+
+        // the pointer pulled onto the centre or a spoke when it's close, so the dot slides along it
+        function stick(x, y) {
+            const c = pad.at(Mixer.centre());
+            if (Math.hypot(x - c.x, y - c.y) < centreSnap * (stuck === -1 ? release : 1)) {
+                stuck = -1;
+                return c;
+            }
+            if (pad.groups.length >= 3) {
+                let best = -2;
+                let bestDist = Infinity;
+                let bestPoint = null;
+                for (let i = 0; i < pad.keys.length; i++) {
+                    const p = nearestOn(x, y, c, pad.outlinePixel(pad.keys[i]));
+                    const d = Math.hypot(x - p.x, y - p.y);
+                    if (d < bestDist) {
+                        bestDist = d;
+                        best = i;
+                        bestPoint = p;
+                    }
+                }
+                if (best >= 0 && bestDist < spokeSnap * (stuck === best ? release : 1)) {
+                    stuck = best;
+                    return bestPoint;
+                }
+            }
+            stuck = -2;
+            return Qt.point(x, y);
+        }
+
+        function place(x, y) {
+            const p = stick(x, y);
+            pad.moved(pad.from(p.x, p.y));
+        }
 
         // a group's marker or label under the pointer, as its index, else -1
         function groupAt(x, y) {
@@ -649,13 +716,14 @@ Item {
             } else if (mouse.button === Qt.MiddleButton) {
                 pad.recentred();
             } else {
-                pad.moved(pad.from(mouse.x, mouse.y));
+                place(mouse.x, mouse.y);
             }
         }
         onPositionChanged: mouse => {
             if (!pad.bypassed && pad.groups.length >= 2 && pressedButtons & Qt.LeftButton)
-                pad.moved(pad.from(mouse.x, mouse.y));
+                place(mouse.x, mouse.y);
         }
+        onReleased: stuck = -2
         // like a middle-click; a double-click that just turned the mixer on leaves the dot be
         onDoubleClicked: mouse => {
             if (mouse.button === Qt.LeftButton && !pad.bypassed && pad.groups.length >= 2 && Date.now() - enabledAt > 600)
