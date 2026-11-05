@@ -178,7 +178,7 @@ Column {
                     })
                 stashPoint: name => section.stashPoint(name)
                 onMoved: point => section.daemon?.setDot(point)
-                onNudged: towardsVertex => section.daemon?.nudgeDot(towardsVertex)
+                onNudged: steps => section.daemon?.nudgeDot(steps)
                 onRecentred: section.daemon?.recentre()
                 onEnableRequested: section.daemon?.toggleBypass()
                 onGroupMenuRequested: (index, x, y) => section.menu.openAt(pad, x, y, section.groupMenu(index))

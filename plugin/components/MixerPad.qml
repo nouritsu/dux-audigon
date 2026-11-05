@@ -6,6 +6,7 @@ import Quickshell
 import qs.Common
 import qs.DCommon.Widgets
 import "../lib/mixer.js" as Mixer
+import "../lib/wheel.js" as Wheel
 
 // the mixer: a dot among the groups that are playing. One sits alone, two at the ends of a track,
 // three or more on a polygon, and the shape morphs as groups come, go or are excluded. Drag the dot,
@@ -27,7 +28,8 @@ Item {
     property bool live: true
 
     signal moved(var point)
-    signal nudged(bool towardsVertex)
+    // wheel notches, up positive
+    signal nudged(int steps)
     signal recentred
     signal enableRequested
     // in this item's coordinates
@@ -627,6 +629,7 @@ Item {
         readonly property real centreSnap: pad.markerSize * 0.4
         readonly property real spokeSnap: pad.markerSize * 0.25
         readonly property real release: 1.6
+        property real wheelRest: 0
 
         // the pointer pulled onto the centre or a spoke when it's close, so the dot slides along it
         function stick(x, y) {
@@ -722,8 +725,10 @@ Item {
                 pad.recentred();
         }
         onWheel: wheel => {
-            if (!pad.bypassed && pad.groups.length >= 2)
-                pad.nudged(wheel.angleDelta.y > 0);
+            const turn = Wheel.notches(wheelRest, wheel.angleDelta.y);
+            wheelRest = turn.rest;
+            if (turn.steps !== 0 && !pad.bypassed && pad.groups.length >= 2)
+                pad.nudged(turn.steps);
         }
     }
 }

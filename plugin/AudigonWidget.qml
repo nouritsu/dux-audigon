@@ -62,20 +62,13 @@ PluginComponent {
         objects: Pipewire.nodes.values.filter(node => node.audio)
     }
 
-    function adjustSinkVolume(delta) {
-        if (!sink?.audio)
+    // a device's volume moved by delta percent, unmuting it
+    function adjustVolume(node, delta, max) {
+        if (!node?.audio)
             return;
-        if (sink.audio.muted)
-            sink.audio.muted = false;
-        sink.audio.volume = Math.max(0, Math.min(sinkMaxVolume, sinkVolume + delta)) / 100;
-    }
-
-    function adjustSourceVolume(delta) {
-        if (!source?.audio)
-            return;
-        if (source.audio.muted)
-            source.audio.muted = false;
-        source.audio.volume = Math.max(0, Math.min(100, sourceVolume + delta)) / 100;
+        if (node.audio.muted)
+            node.audio.muted = false;
+        node.audio.volume = Math.max(0, Math.min(max, Math.round(node.audio.volume * 100) + delta)) / 100;
     }
 
     // an app's own level; with the mixer on, its real volume is this times its group's factor
@@ -263,12 +256,13 @@ PluginComponent {
         }
     }
 
-    function wheelOver(onMicSide, up) {
+    // steps: wheel notches, up positive
+    function wheelOver(onMicSide, steps) {
         if (onMicSide) {
-            adjustSourceVolume(up ? micVolumeScrollStep : -micVolumeScrollStep);
+            adjustVolume(source, steps * micVolumeScrollStep, 100);
             triggerMicPopout();
         } else if (showSpeaker) {
-            adjustSinkVolume(up ? volumeScrollStep : -volumeScrollStep);
+            adjustVolume(sink, steps * volumeScrollStep, sinkMaxVolume);
         }
     }
 

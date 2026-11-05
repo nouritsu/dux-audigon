@@ -1,8 +1,9 @@
-// node tests/lib.test.mjs: the groups as saved
+// node tests/lib.test.mjs: the groups as saved, and the wheel
 import assert from "node:assert/strict";
 import {load} from "./load.mjs";
 
 const Groups = load("groups");
+const Wheel = load("wheel");
 
 const names = list => Groups.normalise(list).map(group => group.name);
 
@@ -38,6 +39,27 @@ const names = list => Groups.normalise(list).map(group => group.name);
     assert.equal(Groups.renamed(["a", "b", "c"], ["a", "c"]), null);
     assert.equal(Groups.renamed(["a", "b", "c"], ["a", "c", "c 2"]), null);
     assert.equal(Groups.renamed(["a", "b"], ["a", "b"]), null);
+}
+
+// the wheel: a notch a step, a touchpad's small deltas add up, turning back starts over
+{
+    const scroll = deltas => {
+        let rest = 0;
+        const steps = [];
+        for (const delta of deltas) {
+            const turn = Wheel.notches(rest, delta);
+            rest = turn.rest;
+            // -0 is no step to the callers too
+            steps.push(turn.steps + 0);
+        }
+        return steps;
+    };
+    assert.deepEqual(scroll([120, 120, -120]), [1, 1, -1]);
+    assert.deepEqual(scroll([240]), [2]);
+    assert.deepEqual(scroll([30, 30, 30, 30, 30]), [0, 0, 0, 1, 0]);
+    assert.deepEqual(scroll([90, -30, -90]), [0, 0, -1]);
+    // a sideways event doesn't count, or lose what had built up
+    assert.deepEqual(scroll([90, 0, 30]), [0, 0, 1]);
 }
 
 console.log("lib: ok");

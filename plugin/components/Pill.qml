@@ -2,6 +2,7 @@ import QtQuick
 import qs.Common
 import qs.Services
 import qs.DCommon.Widgets
+import "../lib/wheel.js" as Wheel
 
 // the bar pill: speaker and mic icons with their volumes; the wheel over either half sets that one
 Item {
@@ -66,11 +67,17 @@ Item {
     }
 
     MouseArea {
+        property real wheelRest: 0
+
         anchors.fill: parent
         acceptedButtons: Qt.NoButton
         onWheel: wheel => {
+            const turn = Wheel.notches(wheelRest, wheel.angleDelta.y);
+            wheelRest = turn.rest;
+            if (turn.steps === 0)
+                return;
             const secondHalf = pill.vertical ? wheel.y > height / 2 : wheel.x > width / 2;
-            pill.widget.wheelOver(pill.widget.showMic && (!pill.widget.showSpeaker || secondHalf), wheel.angleDelta.y > 0);
+            pill.widget.wheelOver(pill.widget.showMic && (!pill.widget.showSpeaker || secondHalf), turn.steps);
         }
     }
 }

@@ -274,8 +274,9 @@ PluginComponent {
         saveTimer.restart();
     }
 
-    function nudgeDot(towardsVertex) {
-        setDot(Mixer.nudge(vertices, effectiveDot, towardsVertex, 0.05));
+    // wheel notches: up towards the nearest vertex, down back to the centre
+    function nudgeDot(steps) {
+        setDot(Mixer.nudge(vertices, effectiveDot, steps > 0, 0.05 * Math.abs(steps)));
     }
 
     function toggleBypass() {
