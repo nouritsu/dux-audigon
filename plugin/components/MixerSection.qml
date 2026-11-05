@@ -5,9 +5,8 @@ import Quickshell
 import qs.Common
 import qs.DCommon.Widgets
 
-// the popout's mixer: its heading with the stash of excluded groups beside it, the pad, and a
-// footer of what the clicks do. A group excluded from the pad flies into the stash crossed out;
-// clicking it there brings it back
+// the popout's mixer: its heading with the stash of excluded groups beside it, and the pad. A group
+// excluded from the pad flies into the stash crossed out; clicking it there brings it back
 Column {
     id: section
 
@@ -159,65 +158,6 @@ Column {
                 onEnableRequested: section.daemon?.toggleBypass()
                 onGroupMenuRequested: (index, x, y) => section.menu.openAt(pad, x, y, section.groupMenu(index))
                 onShapeMenuRequested: (x, y) => section.menu.openAt(pad, x, y, section.shapeMenu())
-            }
-
-            // what the clicks do, as it stands
-            Row {
-                anchors.horizontalCenter: parent.horizontalCenter
-                spacing: Theme.spacingM
-                visible: (section.daemon?.mixGroups?.length ?? 0) >= 2 || section.bypassed
-
-                Repeater {
-                    model: section.bypassed ? [
-                        {
-                            "icon": "left_click",
-                            "text": "Turn on"
-                        },
-                        {
-                            "icon": "right_click",
-                            "text": "Options"
-                        }
-                    ] : [
-                        {
-                            "icon": "left_click",
-                            "text": "Mix"
-                        },
-                        {
-                            "icon": "swipe_vertical",
-                            "text": "Nudge"
-                        },
-                        {
-                            "icon": "mouse",
-                            "text": "Middle: recentre"
-                        },
-                        {
-                            "icon": "right_click",
-                            "text": "Options"
-                        }
-                    ]
-
-                    Row {
-                        id: hint
-
-                        required property var modelData
-
-                        spacing: Theme.spacingXXS
-
-                        DIcon {
-                            anchors.verticalCenter: parent.verticalCenter
-                            name: hint.modelData.icon
-                            size: Theme.iconSizeSmall
-                            color: Theme.surfaceVariantText
-                        }
-
-                        StyledText {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: hint.modelData.text
-                            font.pixelSize: Theme.fontSizeSmall
-                            color: Theme.surfaceVariantText
-                        }
-                    }
-                }
             }
         }
     }
