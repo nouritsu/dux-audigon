@@ -65,7 +65,9 @@ PluginSettings {
                 "appIds": "",
                 "roles": [],
                 "steam": false,
-                "gamemode": false
+                "gamemode": false,
+                "mpris": false,
+                "color": ""
             }
         ]));
     }
@@ -536,7 +538,7 @@ PluginSettings {
                             GroupBadge {
                                 anchors.left: parent.left
                                 anchors.verticalCenter: parent.verticalCenter
-                                tone: groupCard.index
+                                style: root.daemon?.styleFor(groupCard.modelData.color, groupCard.index) ?? ({})
                                 icon: groupCard.modelData.icon
                                 name: groupCard.modelData.name || `Group ${groupCard.index + 1}`
                                 showFactor: false
@@ -648,6 +650,72 @@ PluginSettings {
                             checked: groupCard.modelData.gamemode
                             onToggled: checked => root.updateGroup(groupCard.index, "gamemode", checked)
                         }
+
+                        DToggle {
+                            width: parent.width
+                            text: "Playing media"
+                            description: "Apps with a media player open, playing or paused, like a browser with a video"
+                            checked: groupCard.modelData.mpris
+                            onToggled: checked => root.updateGroup(groupCard.index, "mpris", checked)
+                        }
+
+                        // the theme's tone for its place, or a colour of its own
+                        Item {
+                            id: colourRow
+                            readonly property var style: root.daemon?.styleFor(groupCard.modelData.color, groupCard.index) ?? ({})
+
+                            width: parent.width
+                            height: Theme.buttonHeightXS
+
+                            StyledText {
+                                anchors.left: parent.left
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: groupCard.modelData.color ? "Colour" : "Colour: theme"
+                                font.pixelSize: Theme.fontSizeSmall
+                                color: Theme.surfaceVariantText
+                            }
+
+                            Row {
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: Theme.spacingXS
+
+                                Rectangle {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: Theme.iconSizeMedium
+                                    height: width
+                                    radius: width / 2
+                                    color: colourRow.style.accent ?? Theme.primary
+                                    border.width: 1
+                                    border.color: Theme.outlineVariant
+                                }
+
+                                DActionButton {
+                                    buttonSize: Theme.buttonHeightXS
+                                    iconName: "palette"
+                                    iconSize: Theme.iconSizeMedium
+                                    tooltipText: "Pick a colour"
+                                    onClicked: {
+                                        const picker = PopoutService.colorPickerModal;
+                                        if (!picker)
+                                            return;
+                                        picker.selectedColor = colourRow.style.accent ?? Theme.primary;
+                                        picker.pickerTitle = `${groupCard.modelData.name || "Group"} colour`;
+                                        picker.onColorSelectedCallback = picked => root.updateGroup(groupCard.index, "color", picked.toString());
+                                        picker.show();
+                                    }
+                                }
+
+                                DActionButton {
+                                    buttonSize: Theme.buttonHeightXS
+                                    iconName: "format_color_reset"
+                                    iconSize: Theme.iconSizeMedium
+                                    tooltipText: "Theme colour"
+                                    visible: groupCard.modelData.color !== ""
+                                    onClicked: root.updateGroup(groupCard.index, "color", "")
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -696,7 +764,7 @@ PluginSettings {
             }
 
             StyledText {
-                text: "• Scroll on the widget to change volume (input / output)\n• Click the widget to open the audio panel\n• Pick devices and set their volumes under Input/Output\n• Set per-app volumes under Applications\n• Middle-click an app's volume slider to reset it to 100%\n• Drag the mixer's dot to balance its groups; scroll to nudge it, middle-click to recentre\n• Right-click a group in the mixer, or its badge on an app, to mute the whole group; its side of the mixer closes off\n• Right-click inside the mixer's shape to switch the mixer off and on"
+                text: "• Scroll on the widget to change volume (input / output)\n• Click the widget to open the audio panel\n• Pick devices and set their volumes under Input/Output\n• Set per-app volumes under Applications\n• Middle-click an app's volume slider to reset it to 100%\n• Drag the mixer's dot to balance its groups; scroll to nudge it, middle-click to recentre\n• Right-click a group in the mixer, or its badge on an app, to mute or exclude it; a muted group's side closes off, an excluded one goes to the stash beside \"Mixer\" until clicked\n• Right-click the mixer's shape to switch it off; left-click turns it back on\n• Groups with nothing playing leave the shape, and it reshapes as they come and go"
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.surfaceVariantText
                 wrapMode: Text.WordWrap

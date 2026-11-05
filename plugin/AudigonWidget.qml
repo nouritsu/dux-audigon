@@ -113,11 +113,13 @@ PluginComponent {
             return null;
         const group = daemon.groups[index];
         return {
-            "tone": index,
+            "index": index,
             "icon": group.icon,
             "name": group.name,
-            "factor": daemon.effectiveFactors[index] ?? 1,
-            "muted": daemon.muted[index] ?? false
+            "factor": daemon.groupFactors[index] ?? 1,
+            "muted": daemon.muted[index] ?? false,
+            "excluded": daemon.excluded[index] ?? false,
+            "style": daemon.styles[index] ?? ({})
         };
     }
 
@@ -299,6 +301,11 @@ PluginComponent {
 
             headerText: root.micPopupMode ? "" : "Audio"
 
+            // the group and shape menus; a popup in this window, not one of its own
+            ContextMenu {
+                id: popoutMenu
+            }
+
             Item {
                 width: parent.width
                 height: micCol.implicitHeight + Theme.spacingL * 2
@@ -374,38 +381,13 @@ PluginComponent {
                     }
                 }
 
-                SectionLabel {
-                    text: root.daemon?.bypassed ? "Mixer · off" : "Mixer"
-                    visible: root.mixerShown
-                }
+                MixerSection {
+                    id: mixerSection
 
-                DListRow {
                     width: parent.width
-                    implicitHeight: mixerPad.implicitHeight + Theme.spacingS * 2
                     visible: root.mixerShown
-
-                    MixerPad {
-                        id: mixerPad
-
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.leftMargin: Theme.spacingS
-                        anchors.rightMargin: Theme.spacingS
-                        anchors.verticalCenter: parent.verticalCenter
-                        groups: root.daemon?.groups ?? []
-                        factors: root.daemon?.effectiveFactors ?? []
-                        muted: root.daemon?.muted ?? []
-                        bypassed: root.daemon?.bypassed ?? false
-                        dot: root.daemon?.effectiveDot ?? ({
-                                "x": 0.5,
-                                "y": 0.5
-                            })
-                        onMoved: point => root.daemon?.setDot(point)
-                        onNudged: towardsVertex => root.daemon?.nudgeDot(towardsVertex)
-                        onRecentred: root.daemon?.recentre()
-                        onMuteToggled: index => root.daemon?.toggleGroupMute(index)
-                        onBypassToggled: root.daemon?.toggleBypass()
-                    }
+                    daemon: root.daemon
+                    menu: popoutMenu
                 }
 
                 SectionLabel {
@@ -450,7 +432,7 @@ PluginComponent {
                                 metering: root.metering
                                 group: root.streamGroup(modelData)
                                 onLevelSet: value => root.setStreamLevel(modelData, value)
-                                onGroupMuteToggled: root.daemon?.toggleGroupMute(root.daemon.groupIndex(modelData))
+                                onGroupMenuRequested: (item, x, y) => popoutMenu.openAt(item, x, y, mixerSection.groupMenu(root.daemon.groupIndex(modelData)))
                                 onResetRequested: root.resetStreamVolume(modelData)
                                 onMuteToggled: modelData.audio.muted = !modelData.audio.muted
                             }

@@ -16,14 +16,15 @@ DListRow {
     property int level: 0
     property int maxVolume: 100
     property bool metering: false
-    // its mixer group, {tone, icon, name, factor, muted}; null when ungrouped
+    // its mixer group, {index, icon, name, factor, muted, excluded, style}; null when ungrouped
     property var group: null
     readonly property bool muted: node?.audio?.muted ?? false
 
     signal levelSet(int value)
     signal resetRequested
     signal muteToggled
-    signal groupMuteToggled
+    // the badge was right-clicked, at x, y in it
+    signal groupMenuRequested(var item, real x, real y)
 
     width: parent?.width ?? 0
     implicitHeight: body.implicitHeight + Theme.spacingS * 2
@@ -102,13 +103,14 @@ DListRow {
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 visible: row.group !== null
-                tone: row.group?.tone ?? 0
                 icon: row.group?.icon ?? ""
                 name: row.group?.name ?? ""
                 factor: row.group?.factor ?? 1
                 muted: row.group?.muted ?? false
-                muteable: true
-                onMuteToggled: row.groupMuteToggled()
+                excluded: row.group?.excluded ?? false
+                style: row.group?.style ?? ({})
+                menuEnabled: true
+                onMenuRequested: (x, y) => row.groupMenuRequested(badge, x, y)
             }
         }
 
