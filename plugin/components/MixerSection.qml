@@ -5,8 +5,9 @@ import Quickshell
 import qs.Common
 import qs.DCommon.Widgets
 
-// the popout's mixer: its heading with the stash of excluded groups beside it, and the pad. A group
-// excluded from the pad flies into the stash crossed out; clicking it there brings it back
+// the popout's mixer: its heading with the stash beside it, and the pad. Every group off the shape
+// sits in the stash, idle ones in their colours and excluded ones greyed; a group flies out of the
+// stash onto the shape when it starts playing and back in when it stops or is excluded
 Column {
     id: section
 
@@ -45,9 +46,9 @@ Column {
         ];
     }
 
-    // a stash icon's middle, in the pad's coordinates
+    // a stash icon's middle, in the pad's coordinates; every group has one, collapsed while it's on the shape
     function stashPoint(name) {
-        const item = stashIcons.itemAt((daemon?.stash ?? []).findIndex(group => group.name === name));
+        const item = stashIcons.itemAt((daemon?.groups ?? []).findIndex(group => group.name === name));
         return item ? item.mapToItem(pad, item.width / 2, item.height / 2) : null;
     }
 
@@ -76,19 +77,35 @@ Column {
                 id: stashIcons
 
                 model: ScriptModel {
-                    values: section.daemon?.stash ?? []
+                    values: (section.daemon?.groups ?? []).map(group => group.name)
                 }
 
-                // small and crossed out; it pops in once its marker has landed
+                // a small marker in its colours, greyed while excluded, a muted icon while muted; it
+                // collapses while its group is on the shape and shows again once its marker has landed
                 Item {
                     id: stashed
 
-                    required property var modelData
-                    readonly property color tint: section.daemon?.styles[modelData.index]?.content ?? Theme.surfaceVariantText
+                    required property string modelData
+                    readonly property int index: (section.daemon?.groups ?? []).findIndex(group => group.name === modelData)
+                    readonly property var group: section.daemon?.groups[index] ?? ({})
+                    readonly property var style: section.daemon?.styles[index] ?? ({})
+                    readonly property bool onShape: (section.daemon?.mixNames ?? []).includes(modelData)
+                    readonly property bool excluded: section.daemon?.excluded[index] ?? false
+                    readonly property bool muted: section.daemon?.muted[index] ?? false
+                    readonly property real size: pad.stashSize
 
-                    width: Theme.iconSizeSmall + Theme.spacingXS
-                    height: width
-                    opacity: pad.inFlight(modelData.name) ? 0 : 0.7
+                    width: onShape ? 0 : size
+                    // a collapsed one leaves no gap in the row
+                    visible: width > 0.5
+                    height: size
+                    opacity: onShape || pad.inFlight(modelData) ? 0 : 1
+
+                    Behavior on width {
+                        NumberAnimation {
+                            duration: Theme.mediumDuration
+                            easing.type: Theme.emphasizedEasing
+                        }
+                    }
 
                     Behavior on opacity {
                         NumberAnimation {
@@ -96,29 +113,33 @@ Column {
                         }
                     }
 
-                    DIcon {
-                        anchors.centerIn: parent
-                        name: stashed.modelData.icon
-                        size: Theme.iconSizeSmall
-                        color: stashed.tint
-                    }
-
                     Rectangle {
                         anchors.centerIn: parent
-                        width: 1.5
-                        height: Theme.iconSizeSmall + 2
+                        width: stashed.size
+                        height: width
                         radius: width / 2
-                        rotation: 45
-                        color: stashed.tint
+                        scale: stashed.width / stashed.size
+                        color: stashed.excluded ? Theme.surfaceContainerHighest : stashed.style.container ?? Theme.primaryContainer
+
+                        DIcon {
+                            anchors.centerIn: parent
+                            name: stashed.muted && !stashed.excluded ? "volume_off" : stashed.group.icon ?? ""
+                            size: Theme.iconSizeSmall - Theme.spacingXXS
+                            color: stashed.excluded ? Theme.onSurface_38 : stashed.style.content ?? Theme.onPrimaryContainer
+                        }
                     }
 
+                    // left brings an excluded one back, right opens its menu
                     StateLayer {
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton
                         cornerRadius: Theme.cornerRadiusFull
-                        tooltipText: `Bring back ${stashed.modelData.name}`
+                        tooltipText: stashed.excluded ? `Bring back ${stashed.modelData}` : `${stashed.modelData}: nothing playing`
                         tooltipSide: "top"
-                        onClicked: {
-                            pad.launch(stashed.modelData.name, stashed.mapToItem(pad, stashed.width / 2, stashed.height / 2));
-                            section.daemon.setExcluded(stashed.modelData.index, false);
+                        onClicked: mouse => {
+                            if (mouse.button === Qt.RightButton)
+                                section.menu.openAt(stashed, mouse.x, mouse.y, section.groupMenu(stashed.index));
+                            else if (stashed.excluded)
+                                section.daemon.setExcluded(stashed.index, false);
                         }
                     }
                 }
@@ -153,7 +174,6 @@ Column {
                         "x": 0.5,
                         "y": 0.5
                     })
-                stashNames: (section.daemon?.stash ?? []).map(group => group.name)
                 stashPoint: name => section.stashPoint(name)
                 onMoved: point => section.daemon?.setDot(point)
                 onNudged: towardsVertex => section.daemon?.nudgeDot(towardsVertex)

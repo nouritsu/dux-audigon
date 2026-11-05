@@ -21,10 +21,9 @@ Item {
     property bool bypassed: false
     // where the dot is in use
     property var dot: Mixer.centre()
-    // excluded groups' names, and where a name's stash icon is in this item, from the section
-    property var stashNames: []
+    // where a group's stash icon is in this item, from the section; every group off the shape has one
     property var stashPoint: name => null
-    // the popout is open; a morph left running behind a closed one is finished at once
+    // the popout is open: reshapes animate only then, and one cut off by closing it finishes at once
     property bool live: true
 
     signal moved(var point)
@@ -42,14 +41,15 @@ Item {
     // flying into the stash or out of it, its marker leaving the outline to get there
     property var moves: ({})
     property var flights: ({})
-    property var launches: ({})
     property real t: 1
     readonly property bool morphing: t < 1
 
     readonly property color closedFill: Theme.withAlpha(Theme.onSurface, 0.08)
     readonly property color dotColor: bypassed ? Theme.surfaceVariantText : Theme.primary
     readonly property real markerSize: Theme.buttonHeightXS - Theme.spacingXS
-    readonly property real stashScale: Theme.iconSizeSmall / markerSize
+    // a stash icon is a small marker
+    readonly property real stashSize: Theme.iconSizeSmall + Theme.spacingXS
+    readonly property real stashScale: stashSize / markerSize
     readonly property real labelGap: Theme.spacingXS
     readonly property real labelWidth: 80
     readonly property real labelHeight: probe.implicitHeight * 2
@@ -195,13 +195,6 @@ Item {
         return at >= 0 ? factors[at] ?? 1 : 0;
     }
 
-    // set by the section before a group comes back, so its marker leaves from the stash
-    function launch(name, point) {
-        const next = Object.assign({}, launches);
-        next[name] = point;
-        launches = next;
-    }
-
     function inFlight(name) {
         return morph.running && !!flights[name]?.toStash;
     }
@@ -229,19 +222,22 @@ Item {
             if (before[key])
                 nextMoves[key].from.s = before[key].s;
         }
+        // leaving: into its stash icon; joining: out of it, from where the icon sits as it collapses
         const nextFlights = {};
         for (const key of union) {
-            if (!after[key] && before[key] && stashNames.includes(key))
+            if (!after[key] && before[key])
                 nextFlights[key] = {
                     "toStash": true,
                     "from": markerPixel(key)
                 };
-            else if (after[key] && launches[key])
-                nextFlights[key] = {
-                    "from": launches[key]
-                };
+            else if (after[key] && !before[key]) {
+                const from = stashPoint(key);
+                if (from)
+                    nextFlights[key] = {
+                        "from": from
+                    };
+            }
         }
-        launches = {};
         known = nextKnown;
         moves = nextMoves;
         flights = nextFlights;
@@ -273,7 +269,7 @@ Item {
         keys = names.filter(name => pinned[name] !== undefined);
     }
 
-    onGroupsChanged: reshape(true)
+    onGroupsChanged: reshape(live)
     onLiveChanged: {
         if (!live && morphing) {
             morph.stop();

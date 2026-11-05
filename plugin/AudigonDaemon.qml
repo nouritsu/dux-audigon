@@ -64,9 +64,6 @@ PluginComponent {
     property var excludedGroups: []
     readonly property var muted: groups.map(group => active && mutedGroups.includes(group.name))
     readonly property var excluded: groups.map(group => excludedGroups.includes(group.name))
-    readonly property var stash: groups.map((group, index) => Object.assign({
-            "index": index
-        }, group)).filter(group => excludedGroups.includes(group.name))
 
     // groups with a stream for a moment, so a short ding doesn't reshape the mixer; they leave a few
     // seconds after their last stream
