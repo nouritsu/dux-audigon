@@ -9,7 +9,7 @@ import "../lib/mixer.js" as Mixer
 
 // the mixer: a dot among the groups that are playing. One sits alone, two at the ends of a track,
 // three or more on a polygon, and the shape morphs as groups come, go or are excluded. Drag the dot,
-// scroll to nudge it, middle-click to recentre; right-click a group or the shape for its menu
+// scroll to nudge it, double- or middle-click to recentre; right-click a group or the shape for its menu
 Item {
     id: pad
 
@@ -600,6 +600,9 @@ Item {
     MouseArea {
         id: drag
 
+        // when a left click last turned the mixer back on
+        property double enabledAt: 0
+
         // a group's marker or label under the pointer, as its index, else -1
         function groupAt(x, y) {
             for (let i = 0; i < pad.keys.length; i++) {
@@ -637,8 +640,10 @@ Item {
                 else if (onShape(mouse.x, mouse.y))
                     pad.shapeMenuRequested(mouse.x, mouse.y);
             } else if (pad.bypassed) {
-                if (mouse.button === Qt.LeftButton && onShape(mouse.x, mouse.y))
+                if (mouse.button === Qt.LeftButton && onShape(mouse.x, mouse.y)) {
+                    enabledAt = Date.now();
                     pad.enableRequested();
+                }
             } else if (pad.groups.length < 2) {
                 return;
             } else if (mouse.button === Qt.MiddleButton) {
@@ -650,6 +655,11 @@ Item {
         onPositionChanged: mouse => {
             if (!pad.bypassed && pad.groups.length >= 2 && pressedButtons & Qt.LeftButton)
                 pad.moved(pad.from(mouse.x, mouse.y));
+        }
+        // like a middle-click; a double-click that just turned the mixer on leaves the dot be
+        onDoubleClicked: mouse => {
+            if (mouse.button === Qt.LeftButton && !pad.bypassed && pad.groups.length >= 2 && Date.now() - enabledAt > 600)
+                pad.recentred();
         }
         onWheel: wheel => {
             if (!pad.bypassed && pad.groups.length >= 2)
