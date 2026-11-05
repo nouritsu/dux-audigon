@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Services.Pipewire
+import Quickshell.Wayland
 import qs.Common
 import qs.Modules.Plugins
 import qs.Services
@@ -243,13 +244,21 @@ PluginComponent {
         openPicker = openPicker === which ? "" : which;
     }
 
+    // pinned from the header: clicks elsewhere don't close it and other windows keep the keyboard
+    property bool pinned: false
+
+    // the full popout is up; the pill shows a close cross meanwhile
+    readonly property bool popoutOpen: interactionActive && !micPopupMode
+
     // a click opens the full popout; the mic popout keeps its size while it closes.
-    // dux keeps the content loaded, so the device lists fold here rather than on destruction
+    // dux keeps the content loaded, so the device lists fold and the pin drops here rather than on destruction
     onInteractionActiveChanged: {
         if (interactionActive && !_micOpening)
             micPopupMode = false;
-        if (!interactionActive)
+        if (!interactionActive) {
             openPicker = "";
+            pinned = false;
+        }
         _micOpening = false;
     }
 
@@ -300,6 +309,39 @@ PluginComponent {
             id: popout
 
             headerText: root.micPopupMode ? "" : "Audio"
+            headerActions: Component {
+                DActionButton {
+                    buttonSize: Theme.buttonHeightXS
+                    iconName: "push_pin"
+                    iconSize: Theme.iconSizeMedium
+                    iconFilled: root.pinned
+                    iconColor: root.pinned ? Theme.primary : Theme.surfaceVariantText
+                    tooltipText: root.pinned ? "Unpin" : "Keep open"
+                    onClicked: root.pinned = !root.pinned
+                }
+            }
+
+            // pinned: the popout ignores clicks outside it and only takes the keyboard when clicked
+            Binding {
+                target: popout.parentPopout
+                property: "backgroundInteractive"
+                value: !root.pinned
+                when: popout.parentPopout !== null
+            }
+
+            Binding {
+                target: popout.parentPopout
+                property: "customKeyboardFocus"
+                value: root.pinned ? WlrKeyboardFocus.OnDemand : null
+                when: popout.parentPopout !== null
+            }
+
+            Binding {
+                target: popout.parentPopout
+                property: "hoverDismissSuspended"
+                value: root.pinned
+                when: popout.parentPopout !== null
+            }
 
             // the group and shape menus; a popup in this window, not one of its own
             ContextMenu {
