@@ -388,6 +388,7 @@ PluginComponent {
                     visible: root.mixerShown
                     daemon: root.daemon
                     menu: popoutMenu
+                    live: root.interactionActive
                 }
 
                 SectionLabel {

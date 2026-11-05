@@ -15,6 +15,8 @@ Column {
     required property var menu
 
     readonly property bool bypassed: daemon?.bypassed ?? false
+    // the popout is open
+    property bool live: true
 
     function groupMenu(index) {
         const muted = daemon.muted[index] ?? false;
@@ -146,6 +148,7 @@ Column {
                 factors: section.daemon?.mixEffective ?? []
                 muted: section.daemon?.mixMuted ?? []
                 bypassed: section.bypassed
+                live: section.live
                 dot: section.daemon?.effectiveDot ?? ({
                         "x": 0.5,
                         "y": 0.5

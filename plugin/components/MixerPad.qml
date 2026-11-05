@@ -24,6 +24,8 @@ Item {
     // excluded groups' names, and where a name's stash icon is in this item, from the section
     property var stashNames: []
     property var stashPoint: name => null
+    // the popout is open; a morph left running behind a closed one is finished at once
+    property bool live: true
 
     signal moved(var point)
     signal nudged(bool towardsVertex)
@@ -201,7 +203,7 @@ Item {
     }
 
     function inFlight(name) {
-        return morphing && !!flights[name]?.toStash;
+        return morph.running && !!flights[name]?.toStash;
     }
 
     // the groups changed: morph from what's drawn now to their new places
@@ -272,6 +274,13 @@ Item {
     }
 
     onGroupsChanged: reshape(true)
+    onLiveChanged: {
+        if (!live && morphing) {
+            morph.stop();
+            t = 1;
+            settle();
+        }
+    }
     Component.onCompleted: reshape(false)
 
     NumberAnimation {
