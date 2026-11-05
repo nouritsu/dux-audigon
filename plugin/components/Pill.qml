@@ -21,24 +21,16 @@ Item {
     Grid {
         id: grid
 
-        columns: pill.vertical ? 1 : 6
+        columns: pill.vertical ? 1 : 5
         spacing: Theme.spacingXS
         horizontalItemAlignment: Grid.AlignHCenter
         verticalItemAlignment: Grid.AlignVCenter
-
-        // the full popout already shows all of this; meanwhile the pill is its close cross
-        DIcon {
-            name: "close"
-            size: pill.widget.iconSize
-            color: Theme.surfaceText
-            visible: pill.widget.popoutOpen
-        }
 
         DIcon {
             name: pill.widget.speakerIconName()
             size: pill.widget.iconSize
             color: pill.speakerIconColor
-            visible: !pill.widget.popoutOpen && pill.widget.showSpeaker
+            visible: pill.widget.showSpeaker
         }
 
         StyledText {
@@ -46,14 +38,14 @@ Item {
             font.pixelSize: Theme.fontSizeSmall
             font.weight: Theme.fontWeightMedium
             color: pill.speakerTextColor
-            visible: !pill.widget.popoutOpen && pill.widget.showSpeaker && pill.widget.showSpeakerValue
+            visible: pill.widget.showSpeaker && pill.widget.showSpeakerValue
         }
 
         DIcon {
             name: pill.widget.micIconName()
             size: pill.widget.iconSize
             color: pill.micIconColor
-            visible: !pill.widget.popoutOpen && pill.widget.showMic
+            visible: pill.widget.showMic
         }
 
         StyledText {
@@ -61,7 +53,7 @@ Item {
             font.pixelSize: Theme.fontSizeSmall
             font.weight: Theme.fontWeightMedium
             color: pill.micTextColor
-            visible: !pill.widget.popoutOpen && pill.widget.showMic && pill.widget.showMicValue
+            visible: pill.widget.showMic && pill.widget.showMicValue
         }
 
         // a little end spacing in a horizontal bar

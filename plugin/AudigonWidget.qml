@@ -247,9 +247,6 @@ PluginComponent {
     // pinned from the header: clicks elsewhere don't close it and other windows keep the keyboard
     property bool pinned: false
 
-    // the full popout is up; the pill shows a close cross meanwhile
-    readonly property bool popoutOpen: interactionActive && !micPopupMode
-
     // a click opens the full popout; the mic popout keeps its size while it closes.
     // dux keeps the content loaded, so the device lists fold and the pin drops here rather than on destruction
     onInteractionActiveChanged: {
