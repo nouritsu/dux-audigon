@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Common
+import qs.Services
 import qs.DCommon.Widgets
 
 // the bar pill: speaker and mic icons with their volumes; the wheel over either half sets that one
@@ -27,7 +28,7 @@ Item {
         verticalItemAlignment: Grid.AlignVCenter
 
         DIcon {
-            name: pill.widget.speakerIconName()
+            name: AudioService.volumeIconName(pill.widget.sink)
             size: pill.widget.iconSize
             color: pill.speakerIconColor
             visible: pill.widget.showSpeaker
@@ -42,7 +43,7 @@ Item {
         }
 
         DIcon {
-            name: pill.widget.micIconName()
+            name: pill.widget.sourceMuted ? "mic_off" : "mic"
             size: pill.widget.iconSize
             color: pill.micIconColor
             visible: pill.widget.showMic

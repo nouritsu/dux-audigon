@@ -62,20 +62,6 @@ PluginComponent {
         objects: Pipewire.nodes.values.filter(node => node.audio)
     }
 
-    function speakerIconName() {
-        if (sinkMuted || sinkVolume === 0)
-            return "volume_off";
-        if (sinkVolume < 33)
-            return "volume_mute";
-        if (sinkVolume < 66)
-            return "volume_down";
-        return "volume_up";
-    }
-
-    function micIconName() {
-        return sourceMuted ? "mic_off" : "mic";
-    }
-
     function adjustSinkVolume(delta) {
         if (!sink?.audio)
             return;
