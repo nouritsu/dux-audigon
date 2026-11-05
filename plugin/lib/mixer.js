@@ -55,17 +55,7 @@ function clamp(verts, p) {
         return {"x": 0.5, "y": 0.5};
     if (inside(verts, p))
         return {"x": p.x, "y": p.y};
-    let best = null;
-    let bestDist = Infinity;
-    for (let i = 0; i < n; i++) {
-        const q = closestOnSegment(p, verts[i], verts[(i + 1) % n]);
-        const d = (q.x - p.x) * (q.x - p.x) + (q.y - p.y) * (q.y - p.y);
-        if (d < bestDist) {
-            bestDist = d;
-            best = q;
-        }
-    }
-    return {"x": best.x, "y": best.y};
+    return nearest(p, verts.map((v, i) => closestOnSegment(p, v, verts[(i + 1) % n])));
 }
 
 function closestInTriangle(p, tri) {
@@ -73,17 +63,21 @@ function closestInTriangle(p, tri) {
     const s = [area(a, b, p), area(b, c, p), area(c, a, p)];
     if (!(s.some(v => v < -EPS) && s.some(v => v > EPS)))
         return {"x": p.x, "y": p.y};
+    return nearest(p, [[a, b], [b, c], [c, a]].map(([u, v]) => closestOnSegment(p, u, v)));
+}
+
+// whichever of points is closest to p
+function nearest(p, points) {
     let best = null;
     let bestDist = Infinity;
-    for (const [u, v] of [[a, b], [b, c], [c, a]]) {
-        const q = closestOnSegment(p, u, v);
+    for (const q of points) {
         const d = (q.x - p.x) * (q.x - p.x) + (q.y - p.y) * (q.y - p.y);
         if (d < bestDist) {
             bestDist = d;
             best = q;
         }
     }
-    return best;
+    return {"x": best.x, "y": best.y};
 }
 
 // where the dot may go with some groups muted: each sector between two unmuted vertices and
@@ -113,17 +107,7 @@ function clampTo(verts, muted, p) {
     const parts = pieces(verts, muted);
     if (parts.length === 0)
         return centre();
-    let best = null;
-    let bestDist = Infinity;
-    for (const part of parts) {
-        const q = part.length === 3 ? closestInTriangle(p, part) : closestOnSegment(p, part[0], part[1]);
-        const d = (q.x - p.x) * (q.x - p.x) + (q.y - p.y) * (q.y - p.y);
-        if (d < bestDist) {
-            bestDist = d;
-            best = q;
-        }
-    }
-    return {"x": best.x, "y": best.y};
+    return nearest(p, parts.map(part => part.length === 3 ? closestInTriangle(p, part) : closestOnSegment(p, part[0], part[1])));
 }
 
 // where p sits between the centre and its two nearest vertices: [i, j, lc, li, lj], weights summing to 1
@@ -181,17 +165,7 @@ function nudge(verts, p, towardsVertex, amount) {
         // up moves right, like the slider it replaces
         return clamp(verts, {"x": p.x + (towardsVertex ? amount : -amount), "y": 0.5});
     }
-    let target = centre();
-    if (towardsVertex) {
-        let bestDist = Infinity;
-        for (const v of verts) {
-            const d = Math.hypot(v.x - p.x, v.y - p.y);
-            if (d < bestDist) {
-                bestDist = d;
-                target = v;
-            }
-        }
-    }
+    const target = towardsVertex ? nearest(p, verts) : centre();
     const dx = target.x - p.x;
     const dy = target.y - p.y;
     const dist = Math.hypot(dx, dy);

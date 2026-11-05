@@ -628,14 +628,6 @@ Item {
         readonly property real spokeSnap: pad.markerSize * 0.25
         readonly property real release: 1.6
 
-        function nearestOn(x, y, a, b) {
-            const dx = b.x - a.x;
-            const dy = b.y - a.y;
-            const len = dx * dx + dy * dy;
-            const t = len < 1e-6 ? 0 : Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / len));
-            return Qt.point(a.x + t * dx, a.y + t * dy);
-        }
-
         // the pointer pulled onto the centre or a spoke when it's close, so the dot slides along it
         function stick(x, y) {
             const c = pad.at(Mixer.centre());
@@ -648,7 +640,7 @@ Item {
                 let bestDist = Infinity;
                 let bestPoint = null;
                 for (let i = 0; i < pad.keys.length; i++) {
-                    const p = nearestOn(x, y, c, pad.outlinePixel(pad.keys[i]));
+                    const p = Mixer.closestOnSegment(Qt.point(x, y), c, pad.outlinePixel(pad.keys[i]));
                     const d = Math.hypot(x - p.x, y - p.y);
                     if (d < bestDist) {
                         bestDist = d;
