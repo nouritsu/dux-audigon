@@ -19,22 +19,22 @@ Column {
     // the popout is open
     property bool live: true
 
+    // an excluded group plays at its apps' own levels, so there's nothing to mute until it's back
     function groupMenu(index) {
         const muted = daemon.muted[index] ?? false;
         const excluded = daemon.excluded[index] ?? false;
-        return [
-            {
-                "icon": muted ? "volume_up" : "volume_off",
-                "text": muted ? "Unmute" : "Mute",
-                "action": () => section.daemon.toggleGroupMute(index),
-                "tone": muted ? "success" : "error"
-            },
-            {
-                "icon": excluded ? "add_circle" : "do_not_disturb_on",
-                "text": excluded ? "Include" : "Exclude",
-                "action": () => section.daemon.setExcluded(index, !excluded)
-            }
-        ];
+        const mute = {
+            "icon": muted ? "volume_up" : "volume_off",
+            "text": muted ? "Unmute" : "Mute",
+            "action": () => section.daemon.toggleGroupMute(index),
+            "tone": muted ? "success" : "error"
+        };
+        const exclude = {
+            "icon": excluded ? "add_circle" : "do_not_disturb_on",
+            "text": excluded ? "Include" : "Exclude",
+            "action": () => section.daemon.setExcluded(index, !excluded)
+        };
+        return excluded ? [exclude] : [mute, exclude];
     }
 
     function shapeMenu() {
