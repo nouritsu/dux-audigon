@@ -44,3 +44,15 @@ function unique(name, taken) {
     taken.add(out);
     return out;
 }
+
+// one name changed in place, as a rename in settings does: {from, to}, else null
+function renamed(before, after) {
+    if (before.length !== after.length)
+        return null;
+    const changed = after.map((_, i) => i).filter(i => after[i] !== before[i]);
+    if (changed.length !== 1)
+        return null;
+    const from = before[changed[0]];
+    const to = after[changed[0]];
+    return after.includes(from) || before.includes(to) ? null : {"from": from, "to": to};
+}

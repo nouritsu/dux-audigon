@@ -18,6 +18,9 @@ PluginComponent {
 
     readonly property bool mixerEnabled: pluginData.mixerEnabled ?? true
     readonly property var groups: Groups.normalise(pluginData.groups)
+    // the names last seen, to tell a rename from a new group
+    property var _names: []
+    property bool _renaming: false
     readonly property bool active: mixerEnabled && groups.length >= 2
     readonly property real maxLevel: Math.max(1, (pluginData.maxVolumePercent || 100) / 100)
 
@@ -286,6 +289,8 @@ PluginComponent {
 
     // the shape's groups changed: fit the dot so every group gets the factor it last had
     function relayout() {
+        if (_renaming)
+            return;
         const names = groups.map(group => group.name).filter(name => presentNames.includes(name) && !excludedGroups.includes(name));
         if (JSON.stringify(names) === JSON.stringify(mixNames))
             return;
@@ -316,6 +321,34 @@ PluginComponent {
             lastFactors = next;
             saveTimer.restart();
         }
+    }
+
+    // a group renamed in settings keeps its mute, exclusion, factor and place on the shape
+    function adoptRename() {
+        const names = groups.map(group => group.name);
+        const change = Groups.renamed(_names, names);
+        _names = names;
+        if (!change)
+            return;
+        const swap = list => list.map(name => name === change.from ? change.to : name);
+        const move = map => {
+            if (!(change.from in map))
+                return map;
+            const next = Object.assign({}, map);
+            next[change.to] = next[change.from];
+            delete next[change.from];
+            return next;
+        };
+        _renaming = true;
+        mixNames = swap(mixNames);
+        presentNames = swap(presentNames);
+        mutedGroups = swap(mutedGroups);
+        excludedGroups = swap(excludedGroups);
+        _renaming = false;
+        lastFactors = move(lastFactors);
+        _since = move(_since);
+        _gone = move(_gone);
+        saveTimer.restart();
     }
 
     function updatePresent() {
@@ -506,6 +539,7 @@ PluginComponent {
     onPresentNamesChanged: relayout()
     onExcludedGroupsChanged: relayout()
     onGroupsChanged: {
+        adoptRename();
         relayout();
         updatePresent();
     }
@@ -579,6 +613,7 @@ PluginComponent {
         lastFactors = PluginService.loadPluginState(pluginId, "lastFactors", {});
         bypassed = PluginService.loadPluginState(pluginId, "bypassed", false);
         dot = PluginService.loadPluginState(pluginId, "dot", Mixer.centre());
+        _names = groups.map(group => group.name);
         resolve();
     }
 

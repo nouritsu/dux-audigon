@@ -30,4 +30,14 @@ const names = list => Groups.normalise(list).map(group => group.name);
     assert.deepEqual(colours, ["#ff0000", "#80ff000a", "", ""]);
 }
 
+// a rename is one name changed in place; moves, adds, removes and swaps aren't
+{
+    assert.deepEqual(Groups.renamed(["a", "b", "c"], ["a", "x", "c"]), {"from": "b", "to": "x"});
+    assert.equal(Groups.renamed(["a", "b", "c"], ["b", "a", "c"]), null);
+    assert.equal(Groups.renamed(["a", "b"], ["a", "b", "c"]), null);
+    assert.equal(Groups.renamed(["a", "b", "c"], ["a", "c"]), null);
+    assert.equal(Groups.renamed(["a", "b", "c"], ["a", "c", "c 2"]), null);
+    assert.equal(Groups.renamed(["a", "b"], ["a", "b"]), null);
+}
+
 console.log("lib: ok");
