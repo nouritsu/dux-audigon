@@ -9,6 +9,7 @@ import qs.Modules.Plugins
 import qs.Services
 import qs.DCommon.Widgets
 import "components"
+import "lib/colors.js" as Colors
 
 PluginComponent {
     id: root
@@ -170,46 +171,7 @@ PluginComponent {
     }
 
     function themeColorFromKey(key, fallback) {
-        switch (key) {
-        case "primary":
-            return Theme.primary;
-        case "primaryText":
-            return Theme.primaryText;
-        case "primaryContainer":
-            return Theme.primaryContainer;
-        case "secondary":
-            return Theme.secondary;
-        case "surface":
-            return Theme.surface;
-        case "surfaceText":
-            return Theme.surfaceText;
-        case "surfaceVariant":
-            return Theme.surfaceVariant;
-        case "surfaceVariantText":
-            return Theme.surfaceVariantText;
-        case "surfaceTint":
-            return Theme.surfaceTint;
-        case "background":
-            return Theme.background;
-        case "backgroundText":
-            return Theme.backgroundText;
-        case "outline":
-            return Theme.outline;
-        case "surfaceContainer":
-            return Theme.surfaceContainer;
-        case "surfaceContainerHigh":
-            return Theme.surfaceContainerHigh;
-        case "surfaceContainerHighest":
-            return Theme.surfaceContainerHighest;
-        case "error":
-            return Theme.error;
-        case "warning":
-            return Theme.warning;
-        case "info":
-            return Theme.info;
-        default:
-            return fallback;
-        }
+        return Colors.keys().includes(key) ? Theme[key] ?? fallback : fallback;
     }
 
     // scrolling over the pill's mic opens a small mic level popout for a moment

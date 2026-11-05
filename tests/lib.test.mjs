@@ -1,8 +1,9 @@
-// node tests/lib.test.mjs: the groups as saved, and the wheel
+// node tests/lib.test.mjs: groups, theme colours and the wheel
 import assert from "node:assert/strict";
 import {load} from "./load.mjs";
 
 const Groups = load("groups");
+const Colors = load("colors");
 const Wheel = load("wheel");
 
 const names = list => Groups.normalise(list).map(group => group.name);
@@ -39,6 +40,13 @@ const names = list => Groups.normalise(list).map(group => group.name);
     assert.equal(Groups.renamed(["a", "b", "c"], ["a", "c"]), null);
     assert.equal(Groups.renamed(["a", "b", "c"], ["a", "c", "c 2"]), null);
     assert.equal(Groups.renamed(["a", "b"], ["a", "b"]), null);
+}
+
+// theme colour labels read like the keys
+{
+    assert.equal(Colors.label("primary"), "Primary");
+    assert.equal(Colors.label("surfaceContainerHighest"), "Surface Container Highest");
+    assert.ok(Colors.keys().includes("surfaceText"));
 }
 
 // the wheel: a notch a step, a touchpad's small deltas add up, turning back starts over

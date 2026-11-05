@@ -6,6 +6,7 @@ import qs.Modules.Plugins
 import qs.Services
 import qs.DCommon.Widgets
 import "components"
+import "lib/colors.js" as Colors
 import "lib/groups.js" as Groups
 
 PluginSettings {
@@ -70,80 +71,10 @@ PluginSettings {
         }
     }
 
-    property var themeColorOptions: [
-        {
-            label: "Primary",
-            value: "primary"
-        },
-        {
-            label: "Primary Text",
-            value: "primaryText"
-        },
-        {
-            label: "Primary Container",
-            value: "primaryContainer"
-        },
-        {
-            label: "Secondary",
-            value: "secondary"
-        },
-        {
-            label: "Surface",
-            value: "surface"
-        },
-        {
-            label: "Surface Text",
-            value: "surfaceText"
-        },
-        {
-            label: "Surface Variant",
-            value: "surfaceVariant"
-        },
-        {
-            label: "Surface Variant Text",
-            value: "surfaceVariantText"
-        },
-        {
-            label: "Surface Tint",
-            value: "surfaceTint"
-        },
-        {
-            label: "Background",
-            value: "background"
-        },
-        {
-            label: "Background Text",
-            value: "backgroundText"
-        },
-        {
-            label: "Outline",
-            value: "outline"
-        },
-        {
-            label: "Surface Container",
-            value: "surfaceContainer"
-        },
-        {
-            label: "Surface Container High",
-            value: "surfaceContainerHigh"
-        },
-        {
-            label: "Surface Container Highest",
-            value: "surfaceContainerHighest"
-        },
-        {
-            label: "Error",
-            value: "error"
-        },
-        {
-            label: "Warning",
-            value: "warning"
-        },
-        {
-            label: "Info",
-            value: "info"
-        }
-    ]
+    property var themeColorOptions: Colors.keys().map(key => ({
+                "label": Colors.label(key),
+                "value": key
+            }))
 
     StyledText {
         width: parent.width
@@ -155,7 +86,7 @@ PluginSettings {
 
     StyledText {
         width: parent.width
-        text: "Configure bar display and volume scroll behavior"
+        text: "Bar display, scrolling and the mixer"
         font.pixelSize: Theme.fontSizeSmall
         color: Theme.surfaceVariantText
         wrapMode: Text.WordWrap
@@ -211,7 +142,7 @@ PluginSettings {
             }
 
             StyledText {
-                text: "Widget Colors"
+                text: "Widget Colours"
                 font.pixelSize: Theme.fontSizeSmall
                 font.weight: Font.Medium
                 color: Theme.surfaceText
@@ -220,39 +151,39 @@ PluginSettings {
 
             SelectionSetting {
                 settingKey: "speakerIconColorKey"
-                label: "Speaker Icon Color"
-                description: "Theme color for the speaker icon"
+                label: "Speaker Icon Colour"
+                description: "Theme colour for the speaker icon"
                 options: root.themeColorOptions
                 defaultValue: "primary"
             }
 
             SelectionSetting {
                 settingKey: "speakerTextColorKey"
-                label: "Speaker Text Color"
-                description: "Theme color for the speaker volume text"
+                label: "Speaker Text Colour"
+                description: "Theme colour for the speaker volume text"
                 options: root.themeColorOptions
                 defaultValue: "surfaceText"
             }
 
             SelectionSetting {
                 settingKey: "micIconColorKey"
-                label: "Mic Icon Color"
-                description: "Theme color for the microphone icon"
+                label: "Mic Icon Colour"
+                description: "Theme colour for the microphone icon"
                 options: root.themeColorOptions
                 defaultValue: "primary"
             }
 
             SelectionSetting {
                 settingKey: "micTextColorKey"
-                label: "Mic Text Color"
-                description: "Theme color for the microphone volume text"
+                label: "Mic Text Colour"
+                description: "Theme colour for the microphone volume text"
                 options: root.themeColorOptions
                 defaultValue: "surfaceText"
             }
         }
     }
 
-    // ── Scroll Behavior ──
+    // ── Scroll Behaviour ──
     StyledRect {
         width: parent.width
         height: scrollColumn.implicitHeight + Theme.spacingL * 2
@@ -267,196 +198,40 @@ PluginSettings {
             spacing: Theme.spacingM
 
             StyledText {
-                text: "Scroll Behavior"
+                text: "Scroll Behaviour"
                 font.pixelSize: Theme.fontSizeMedium
                 font.weight: Font.Medium
                 color: Theme.surfaceText
             }
 
-            Timer {
-                id: speakerStepDebounce
-                interval: 300
-                repeat: false
-                onTriggered: {
-                    root.saveValue("volumeScrollStep", Math.round(speakerStepSlider.value));
-                }
+            SliderSetting {
+                settingKey: "volumeScrollStep"
+                label: "Output Volume Scroll Step"
+                description: "How much the speaker volume changes per scroll tick"
+                minimum: 1
+                maximum: 20
+                defaultValue: 2
+                unit: "%"
             }
 
-            Column {
-                width: parent.width
-                spacing: 2
-
-                Row {
-                    width: parent.width
-                    height: 24
-                    spacing: Theme.spacingM
-
-                    StyledText {
-                        text: "Output Volume Scroll Step"
-                        font.pixelSize: Theme.fontSizeSmall
-                        width: 180
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-
-                    DSlider {
-                        id: speakerStepSlider
-                        width: parent.width - 180 - Theme.spacingM - speakerStepValue.width - Theme.spacingM
-                        minimum: 1
-                        maximum: 20
-                        showValue: false
-                        anchors.verticalCenter: parent.verticalCenter
-
-                        Binding {
-                            target: speakerStepSlider
-                            property: "value"
-                            value: root.loadValue("volumeScrollStep", 2)
-                        }
-
-                        onSliderValueChanged: newValue => {
-                            speakerStepDebounce.restart();
-                        }
-                    }
-
-                    StyledText {
-                        id: speakerStepValue
-                        text: Math.round(speakerStepSlider.value) + "%"
-                        font.pixelSize: Theme.fontSizeSmall
-                        width: 50
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-
-                StyledText {
-                    text: "How much the speaker volume changes per scroll tick"
-                    font.pixelSize: Theme.fontSizeSmall * 0.9
-                    opacity: 0.5
-                    width: parent.width
-                    wrapMode: Text.Wrap
-                }
+            SliderSetting {
+                settingKey: "micVolumeScrollStep"
+                label: "Input Volume Scroll Step"
+                description: "How much the microphone volume changes per scroll tick"
+                minimum: 1
+                maximum: 20
+                defaultValue: 2
+                unit: "%"
             }
 
-            Timer {
-                id: micStepDebounce
-                interval: 300
-                repeat: false
-                onTriggered: {
-                    root.saveValue("micVolumeScrollStep", Math.round(micStepSlider.value));
-                }
-            }
-
-            Column {
-                width: parent.width
-                spacing: 2
-
-                Row {
-                    width: parent.width
-                    height: 24
-                    spacing: Theme.spacingM
-
-                    StyledText {
-                        text: "Input Volume Scroll Step"
-                        font.pixelSize: Theme.fontSizeSmall
-                        width: 180
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-
-                    DSlider {
-                        id: micStepSlider
-                        width: parent.width - 180 - Theme.spacingM - micStepValue.width - Theme.spacingM
-                        minimum: 1
-                        maximum: 20
-                        showValue: false
-                        anchors.verticalCenter: parent.verticalCenter
-
-                        Binding {
-                            target: micStepSlider
-                            property: "value"
-                            value: root.loadValue("micVolumeScrollStep", 2)
-                        }
-
-                        onSliderValueChanged: newValue => {
-                            micStepDebounce.restart();
-                        }
-                    }
-
-                    StyledText {
-                        id: micStepValue
-                        text: Math.round(micStepSlider.value) + "%"
-                        font.pixelSize: Theme.fontSizeSmall
-                        width: 50
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-
-                StyledText {
-                    text: "How much the microphone volume changes per scroll tick"
-                    font.pixelSize: Theme.fontSizeSmall * 0.9
-                    opacity: 0.5
-                    width: parent.width
-                    wrapMode: Text.Wrap
-                }
-            }
-
-            Timer {
-                id: maxVolumeDebounce
-                interval: 300
-                repeat: false
-                onTriggered: {
-                    root.saveValue("maxVolumePercent", Math.round(maxVolumeSlider.value));
-                }
-            }
-
-            Column {
-                width: parent.width
-                spacing: 2
-
-                Row {
-                    width: parent.width
-                    height: 24
-                    spacing: Theme.spacingM
-
-                    StyledText {
-                        text: "Max Volume"
-                        font.pixelSize: Theme.fontSizeSmall
-                        width: 180
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-
-                    DSlider {
-                        id: maxVolumeSlider
-                        width: parent.width - 180 - Theme.spacingM - maxVolumeValue.width - Theme.spacingM
-                        minimum: 100
-                        maximum: 500
-                        showValue: false
-                        anchors.verticalCenter: parent.verticalCenter
-
-                        Binding {
-                            target: maxVolumeSlider
-                            property: "value"
-                            value: root.loadValue("maxVolumePercent", 100)
-                        }
-
-                        onSliderValueChanged: newValue => {
-                            maxVolumeDebounce.restart();
-                        }
-                    }
-
-                    StyledText {
-                        id: maxVolumeValue
-                        text: Math.round(maxVolumeSlider.value) + "%"
-                        font.pixelSize: Theme.fontSizeSmall
-                        width: 50
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-
-                StyledText {
-                    text: "Maximum allowed per-app volume (up to 500%)"
-                    font.pixelSize: Theme.fontSizeSmall * 0.9
-                    opacity: 0.5
-                    width: parent.width
-                    wrapMode: Text.Wrap
-                }
+            SliderSetting {
+                settingKey: "maxVolumePercent"
+                label: "Max Volume"
+                description: "The highest volume for apps and the output device, up to 500%"
+                minimum: 100
+                maximum: 500
+                defaultValue: 100
+                unit: "%"
             }
         }
     }
