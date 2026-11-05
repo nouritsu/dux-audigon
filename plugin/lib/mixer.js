@@ -1,13 +1,16 @@
 .pragma library
 
-// The mixer's geometry, in a unit square with y down. Two groups sit at the ends of a horizontal
-// line; three or more on a regular polygon pointing down, the first at the bottom, then clockwise.
+// The mixer's geometry, in a unit square with y down. One group sits in the middle, two at the ends
+// of a horizontal line; three or more on a regular polygon pointing down, the first at the bottom,
+// then clockwise.
 
 const EPS = 1e-9;
 
 function vertices(n) {
-    if (n < 2)
+    if (n < 1)
         return [];
+    if (n === 1)
+        return [centre()];
     if (n === 2)
         return [{"x": 0, "y": 0.5}, {"x": 1, "y": 0.5}];
     const out = [];
@@ -195,4 +198,89 @@ function nudge(verts, p, towardsVertex, amount) {
     if (dist <= amount)
         return clamp(verts, target);
     return clamp(verts, {"x": p.x + dx / dist * amount, "y": p.y + dy / dist * amount});
+}
+
+// a dot for these vertices whose factors come closest to targets (null for don't care; muted ones
+// never count): a grid over the open area, then a finer search around the best
+function fit(verts, muted, targets) {
+    const n = verts.length;
+    if (n < 2)
+        return centre();
+    const cost = p => {
+        const f = factors(verts, p);
+        let sum = 0;
+        for (let i = 0; i < n; i++) {
+            if (targets[i] !== null && targets[i] !== undefined && !muted[i])
+                sum += (f[i] - targets[i]) * (f[i] - targets[i]);
+        }
+        return sum;
+    };
+    let best = clampTo(verts, muted, centre());
+    let bestCost = cost(best);
+    const steps = 24;
+    for (let i = 0; i <= steps; i++) {
+        for (let j = 0; j <= (n === 2 ? 0 : steps); j++) {
+            const p = clampTo(verts, muted, {"x": i / steps, "y": n === 2 ? 0.5 : j / steps});
+            const c = cost(p);
+            if (c < bestCost - 1e-12) {
+                bestCost = c;
+                best = p;
+            }
+        }
+    }
+    for (let step = 1 / steps; step > 1e-4;) {
+        let moved = false;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+            const p = clampTo(verts, muted, {"x": best.x + dx * step, "y": best.y + dy * step});
+            const c = cost(p);
+            if (c < bestCost - 1e-12) {
+                bestCost = c;
+                best = p;
+                moved = true;
+            }
+        }
+        if (!moved)
+            step /= 2;
+    }
+    return {"x": best.x, "y": best.y};
+}
+
+// a reshape from one layout to another: keys in their cyclic order, old and new positions by key.
+// A vertex that stays moves; one that joins grows out of the middle of its old neighbours, one
+// that leaves shrinks into the middle of its new ones. Gives {key: {from, to}}, each {x, y, s}.
+function transition(keys, before, after) {
+    const neighbourMid = (key, layout) => {
+        const present = keys.filter(k => layout[k] !== undefined);
+        if (present.length === 0)
+            return centre();
+        const at = keys.indexOf(key);
+        let prev = null;
+        let next = null;
+        for (let i = 1; i <= keys.length && (prev === null || next === null); i++) {
+            const p = keys[(at - i + keys.length) % keys.length];
+            const q = keys[(at + i) % keys.length];
+            if (prev === null && layout[p] !== undefined && p !== key)
+                prev = layout[p];
+            if (next === null && layout[q] !== undefined && q !== key)
+                next = layout[q];
+        }
+        prev = prev ?? next;
+        next = next ?? prev;
+        return {"x": (prev.x + next.x) / 2, "y": (prev.y + next.y) / 2};
+    };
+    const out = {};
+    for (const key of keys) {
+        const was = before[key];
+        const will = after[key];
+        if (was && will)
+            out[key] = {"from": {"x": was.x, "y": was.y, "s": 1}, "to": {"x": will.x, "y": will.y, "s": 1}};
+        else if (will) {
+            const mid = neighbourMid(key, before);
+            out[key] = {"from": {"x": mid.x, "y": mid.y, "s": 0}, "to": {"x": will.x, "y": will.y, "s": 1}};
+        } else if (was) {
+            const mid = neighbourMid(key, after);
+            out[key] = {"from": {"x": was.x, "y": was.y, "s": 1}, "to": {"x": mid.x, "y": mid.y, "s": 0}};
+        }
+    }
+    return out;
 }
