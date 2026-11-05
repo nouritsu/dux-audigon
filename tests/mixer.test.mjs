@@ -3,7 +3,7 @@ import {readFileSync} from "node:fs";
 import assert from "node:assert/strict";
 
 const source = readFileSync(new URL("../plugin/lib/mixer.js", import.meta.url), "utf8").replace(/^\.pragma library$/m, "");
-const Mixer = new Function(`${source}; return {vertices, clamp, sector, factors, centre, nudge, inside, clampTo, closestInTriangle, fit, transition};`)();
+const Mixer = new Function(`${source}; return {vertices, clamp, sector, factors, centre, nudge, inside, clampTo, closestInTriangle, fit, transition, shape};`)();
 
 const near = (actual, expected, what, tolerance = 1e-6) => {
     assert.equal(actual.length, expected.length, what);
@@ -144,6 +144,25 @@ for (let n = 3; n <= 8; n++) {
     // the last one leaving shrinks in place
     const last = Mixer.transition(["a"], {"a": {"x": 0.5, "y": 0.5}}, {});
     near([last.a.to.x, last.a.to.y, last.a.to.s], [0.5, 0.5, 0], "transition: last one shrinks in the middle");
+}
+
+// the fade as heard: full in the dead zone, even in decibels, silent only at the very end
+{
+    const db = f => 60 * Math.log10(f);
+    assert.equal(Mixer.shape(1, 40), 1, "shape: full at the centre");
+    assert.equal(Mixer.shape(0.95, 40), 1, "shape: full in the dead zone");
+    assert.equal(Mixer.shape(0.04, 40), 0, "shape: silent in the last stretch");
+    assert.equal(Mixer.shape(0, 40), 0, "shape: silent at the vertex");
+    // just past the dead zone it's barely down; just before the cut it's at the floor
+    assert.ok(db(Mixer.shape(0.93, 40)) > -1, "shape: starts gently");
+    assert.ok(Math.abs(db(Mixer.shape(0.0501, 40)) + 40) < 0.1, "shape: ends at -40 dB");
+    // even steps in decibels
+    const a = db(Mixer.shape(0.75, 40));
+    const b = db(Mixer.shape(0.5, 40));
+    const c = db(Mixer.shape(0.25, 40));
+    assert.ok(Math.abs((b - a) - (c - b)) < 1e-6, `shape: even in dB, got ${a}, ${b}, ${c}`);
+    // a deeper range fades further
+    assert.ok(Mixer.shape(0.3, 60) < Mixer.shape(0.3, 20), "shape: range sets the depth");
 }
 
 console.log("mixer: ok");

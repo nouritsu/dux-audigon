@@ -502,6 +502,16 @@ PluginSettings {
                 defaultValue: true
             }
 
+            SliderSetting {
+                settingKey: "mixerRange"
+                label: "Fade depth"
+                description: "How far a group fades, evenly, as the dot moves away from it, before it goes silent at the far vertex"
+                minimum: 20
+                maximum: 60
+                defaultValue: 40
+                unit: " dB"
+            }
+
             StyledText {
                 width: parent.width
                 text: "Each group is a vertex. A stream joins the first group it matches; a group with no rules takes the rest. Patterns are case-insensitive regexes."

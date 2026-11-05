@@ -87,9 +87,12 @@ PluginComponent {
     // held at the nearest open place and goes back once they're unmuted
     property var dot: Mixer.centre()
     readonly property var effectiveDot: Mixer.clampTo(vertices, mixMuted, dot)
-    // per vertex: where the dot puts it, then after mutes
+    // per vertex: where the dot puts it, then as heard after the fade curve and mutes
     readonly property var mixFactors: engaged ? Mixer.factors(vertices, effectiveDot) : mixIndices.map(() => 1)
-    readonly property var mixEffective: mixFactors.map((factor, i) => engaged && mixMuted[i] ? 0 : factor)
+    readonly property var mixEffective: mixFactors.map((factor, i) => engaged && mixMuted[i] ? 0 : heard(factor))
+
+    // how deep the fade goes before the cut at a vertex
+    readonly property real rangeDb: Math.max(20, Math.min(60, pluginData.mixerRange || 40))
 
     // group name -> its factor when it last was on the shape, kept in plugin state; a group coming
     // back is fitted to it, as are the ones that stay
@@ -104,7 +107,7 @@ PluginComponent {
         if (muted[index])
             return 0;
         const at = mixIndices.indexOf(index);
-        return at >= 0 ? mixFactors[at] : lastFactors[group.name] ?? 1;
+        return heard(at >= 0 ? mixFactors[at] : lastFactors[group.name] ?? 1);
     })
 
     // per group: {accent, container, content}; theme tones by position unless a colour is set
@@ -181,6 +184,11 @@ PluginComponent {
                     "gamemode": !!group?.gamemode,
                     "mpris": !!group?.mpris
                 }));
+    }
+
+    // a factor from the shape, as the streams get it
+    function heard(factor) {
+        return Mixer.shape(factor, rangeDb);
     }
 
     function styleFor(color, index) {

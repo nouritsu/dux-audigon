@@ -284,3 +284,20 @@ function transition(keys, before, after) {
     }
     return out;
 }
+
+// a factor as heard: the shape's factors fall off in a straight line, which on dux's volume scale
+// (the cube root of the gain, like any volume slider) leaves the outer quarter all but silent.
+// So, like a crossfader: full near the centre, then an even fade in decibels down to -rangeDb,
+// and silence only in the last stretch before the other vertex. Out is a factor on that scale.
+const DEAD_ZONE = 0.06;
+const CUT = 0.05;
+
+function shape(factor, rangeDb) {
+    const away = 1 - Math.max(0, Math.min(1, factor));
+    if (away <= DEAD_ZONE)
+        return 1;
+    if (away >= 1 - CUT)
+        return 0;
+    const t = (away - DEAD_ZONE) / (1 - DEAD_ZONE - CUT);
+    return Math.pow(10, -rangeDb * t / 60);
+}
