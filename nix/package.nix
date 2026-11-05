@@ -5,7 +5,7 @@
 }:
 stdenvNoCC.mkDerivation {
   pname = "dux-audigon";
-  inherit ((lib.importJSON ../plugin/plugin.json)) version;
+  inherit (lib.importJSON ../plugin/plugin.json) version;
 
   src = ../plugin;
 

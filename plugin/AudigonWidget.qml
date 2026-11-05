@@ -87,7 +87,7 @@ PluginComponent {
             node.audio.volume = clamped / 100;
     }
 
-    // {tone, icon, name, factor, muted} for the app row's badge; null when ungrouped
+    // the app row's badge; null when ungrouped
     function streamGroup(node) {
         const index = daemon?.groupIndex(node) ?? -1;
         if (index < 0)
